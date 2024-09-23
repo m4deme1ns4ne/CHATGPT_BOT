@@ -71,9 +71,14 @@ async def process_generation(message: Message, state: FSMContext):
 
     telegram_id = message.from_user.id
 
-    if telegram_id not in [2050793273, 857805093]:
+    # if telegram_id not in [2050793273, 857805093]:
+    #     await message.answer("Иди нахуй, долбаёб!")
+    #     return
+
+    if telegram_id not in [857805093]:
         await message.answer("Иди нахуй, долбаёб!")
         return
+
 
     data = await state.get_data()
     model = data.get("model")
