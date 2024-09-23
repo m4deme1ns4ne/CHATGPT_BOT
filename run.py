@@ -14,7 +14,7 @@ async def main():
     load_dotenv()
     file_logger()
 
-    bot = Bot(token=os.getenv("BOT_TOKEN"), skip_update=True)
+    bot = Bot(token=os.getenv("BOT_TOKEN"))
     dp = Dispatcher()
 
     dp.include_router(router)

@@ -64,6 +64,7 @@ async def select_model(message: Message, state: FSMContext):
     await message.answer(f"Вы выбрали {model}. Введите текст для генерации:", reply_markup=kb.change_model)
 
 
+@logger.catch
 @router.message(Generate.text_input)
 async def process_generation(message: Message, state: FSMContext):
 
@@ -71,12 +72,8 @@ async def process_generation(message: Message, state: FSMContext):
 
     telegram_id = message.from_user.id
 
-    # if telegram_id not in [2050793273, 857805093]:
-    #     await message.answer("Иди нахуй, долбаёб!")
-    #     return
-
-    if telegram_id not in [857805093]:
-        await message.answer("Иди нахуй, долбаёб!")
+    if telegram_id not in [2050793273, 857805093]:
+        await message.answer("Извините, вам отказано в доступе, скоро бот выйдет в общее пользование!")
         return
 
 
@@ -128,6 +125,7 @@ async def process_generation(message: Message, state: FSMContext):
         return
 
 
+@logger.catch
 @router.message(F.text)
 async def error_handling(message: Message, state: FSMContext):
     current_state = await state.get_state()
