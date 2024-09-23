@@ -12,6 +12,7 @@ aiogram = "^3.13.1"
 python-dotenv = "^1.0.1"
 loguru = "^0.7.2"
 tiktoken = "^0.7.0"
+mysql-connector-python = "^9.0.0"
 
 
 [build-system]

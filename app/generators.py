@@ -8,7 +8,7 @@ from logger import file_logger
 
 
 @logger.catch
-async def gpt(question: str):
+async def gpt(question: str, model_gpt: str):
     load_dotenv()
     file_logger()
     try:
@@ -24,7 +24,7 @@ async def gpt(question: str):
         raise Exception
     try:
         response = await client.chat.completions.create(
-        model="gpt-4o-mini",
+        model=model_gpt,
         messages=[
             {"role": "user", "content": str(question)}
                  ])
