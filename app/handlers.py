@@ -15,6 +15,7 @@ from .split_text import split_text
 
 router = Router()
 
+
 class Generate(StatesGroup):
     selecting_model = State()  # Состояние выбора модели
     text_input = State()       # Состояние ожидания текста от пользователя

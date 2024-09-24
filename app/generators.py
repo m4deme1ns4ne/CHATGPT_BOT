@@ -3,12 +3,16 @@ from dotenv import load_dotenv
 from loguru import logger
 import httpx
 import os
+
 from logger import file_logger
 
+# Переменная для хранения истории сообщений
+message_history = []
 
 @logger.catch
 async def gpt(question: str, model_gpt: str):
-
+    global message_history
+    
     load_dotenv()
     file_logger()
 
@@ -20,17 +24,15 @@ async def gpt(question: str, model_gpt: str):
                              ))
         logger.info("API_OPEN_AI обработан")
     except Exception as err:
-        logger.error(f"Ошибка при получении API_OPEN_AI: {err}")
+        logger.info(f"Ошибка при получении API_OPEN_AI: {err}")
         raise Exception
-    
-    message_history = []
-    
-    # Добавляем новый вопрос в список сообщений
-    message_history.append({"role": "user", "content": question})
 
-    # Ограничиваем историю сообщений тремя последними
-    if len(message_history) > 3:
-        message_history.pop(0)
+    # Добавляем новый вопрос в историю
+    message_history.append({"role": "user", "content": str(question)})
+
+    # Ограничиваем историю сообщений двумя последними
+    if len(message_history) > 2:
+        message_history = message_history[-2:]
 
     try:
         response = await client.chat.completions.create(
@@ -38,18 +40,15 @@ async def gpt(question: str, model_gpt: str):
             messages=message_history
         )
 
-        # Получаем ответ от GPT и добавляем его в список сообщений
+        # Получаем ответ от GPT и добавляем его в историю
         gpt_response = response.choices[0].message.content
         message_history.append({"role": "assistant", "content": gpt_response})
 
-        # Ограничиваем историю сообщений тремя последними
-        if len(message_history) > 3:
-            message_history.pop(0)
+        # Ограничиваем историю сообщений двумя последними
+        if len(message_history) > 2:
+            message_history = message_history[-2:]
 
         logger.info(f"Ответ GPT {model_gpt} получен")
-
-        print(message_history)
-
         return gpt_response
 
     except Exception as err:
