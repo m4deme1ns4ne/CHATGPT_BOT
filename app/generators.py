@@ -5,16 +5,11 @@ import httpx
 import os
 from logger import file_logger
 
-from .database import init_db, add_message_to_db, get_last_three_messages, clean_old_messages
-
-
 @logger.catch
 async def gpt(question: str, model_gpt: str):
 
     load_dotenv()
     file_logger()
-
-    init_db()  # Инициализация базы данных
 
     try:
         client = AsyncOpenAI(api_key=os.getenv("OPEN_AI_TOKEN"),
@@ -26,14 +21,15 @@ async def gpt(question: str, model_gpt: str):
     except Exception as err:
         logger.error(f"Ошибка при получении API_OPEN_AI: {err}")
         raise Exception
-
-    # Добавляем новый вопрос в базу данных
-    add_message_to_db("user", question)
+    
+    message_history = []
+    
+    # Добавляем новый вопрос в список сообщений
+    message_history.append({"role": "user", "content": question})
 
     # Ограничиваем историю сообщений тремя последними
-    clean_old_messages()
-
-    message_history = get_last_three_messages()
+    if len(message_history) > 3:
+        message_history.pop(0)
 
     try:
         response = await client.chat.completions.create(
@@ -41,14 +37,18 @@ async def gpt(question: str, model_gpt: str):
             messages=message_history
         )
 
-        # Получаем ответ от GPT и добавляем его в базу данных
+        # Получаем ответ от GPT и добавляем его в список сообщений
         gpt_response = response.choices[0].message.content
-        add_message_to_db("assistant", gpt_response)
+        message_history.append({"role": "assistant", "content": gpt_response})
 
         # Ограничиваем историю сообщений тремя последними
-        clean_old_messages()
+        if len(message_history) > 3:
+            message_history.pop(0)
 
         logger.info(f"Ответ GPT {model_gpt} получен")
+
+        print(message_history)
+
         return gpt_response
 
     except Exception as err:
