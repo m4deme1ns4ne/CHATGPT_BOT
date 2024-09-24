@@ -5,6 +5,7 @@ import httpx
 import os
 from logger import file_logger
 
+
 @logger.catch
 async def gpt(question: str, model_gpt: str):
 
