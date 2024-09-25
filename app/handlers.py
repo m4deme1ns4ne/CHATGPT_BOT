@@ -7,10 +7,16 @@ from loguru import logger
 
 from app.generators import gpt
 from logger import file_logger
-from . import cmd_message
-from .count_token import count_tokens
+from app import cmd_message
+from app.count_token import count_tokens
 import app.keyboards as kb
-from .split_text import split_text
+from app.split_text import split_text
+
+
+"""
+175 рублей (300 000 токенов на gpt-4o + 1 000 000 токенов на gpt-4o-mini)
+При стоимости в 299, моржа становиться около 124 рубля за одну подписку
+"""
 
 
 router = Router()
@@ -55,7 +61,7 @@ async def reset_context(message: Message, state: FSMContext):
     file_logger()
     telegram_id = message.from_user.id
     try:
-        from .generators import message_history
+        from app.generators import message_history
         message_history[telegram_id] = []
         await message.reply(cmd_message.reset_context_message)
     except Exception as err:
@@ -76,7 +82,7 @@ async def select_model(message: Message, state: FSMContext):
     await state.update_data(model=model)
     await state.set_state(Generate.text_input)
 
-    await message.answer(f"Вы выбрали {model}. Введите текст для генерации:", reply_markup=kb.change_model)
+    await message.answer(f"Вы выбрали {model}. Введите текст для генерации:", reply_markup=await kb.change_model(model))
 
 
 @logger.catch
@@ -85,6 +91,9 @@ async def process_generation(message: Message, state: FSMContext):
     file_logger()
 
     telegram_id = message.from_user.id
+
+    # Тут должна быть проверка из базы данных на статус подписки
+    # Но пока что только тупая проверка на telegram_id
 
     if telegram_id not in [2050793273, 857805093]:
         await message.answer("Извините, вам отказано в доступе, скоро бот выйдет в общее пользование!")
@@ -123,7 +132,7 @@ async def process_generation(message: Message, state: FSMContext):
             await message.reply(
                 f"Ваш ответ, полученный с помощью {model}:\n\n{part}\n\nКол-во токенов: {count_tokens(user_input + part)}", 
                 parse_mode="Markdown",
-                reply_markup=kb.change_model  # Кнопка для смены модели
+                reply_markup=await kb.change_model(model)  # Кнопка для смены модели
             )
         logger.info("Ответ gpt получен и отправлен пользователю")
         
