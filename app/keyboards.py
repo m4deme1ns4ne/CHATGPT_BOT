@@ -11,7 +11,8 @@ main = ReplyKeyboardMarkup(keyboard=[
 
 # Кнопка для смены модели после её выбора
 change_model = ReplyKeyboardMarkup(keyboard=[
-    [KeyboardButton(text="Поменять модель gpt")]
+    [KeyboardButton(text="Поменять модель gpt"),
+     KeyboardButton(text="Сброс контекста")]
 ],
     resize_keyboard=True)
     # input_field_placeholder=f"Вы используете модель: {model}")

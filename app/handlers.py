@@ -17,9 +17,9 @@ router = Router()
 
 
 class Generate(StatesGroup):
-    selecting_model = State()  # Состояние выбора модели
-    text_input = State()       # Состояние ожидания текста от пользователя
-    waiting_for_response = State()
+    selecting_model = State()           # Состояние выбора модели
+    text_input = State()                # Состояние ожидания текста от пользователя
+    waiting_for_response = State()      # Ожидание ответа gpt
 
 
 @logger.catch
@@ -29,12 +29,12 @@ async def cmd_start(message: Message, state: FSMContext):
     file_logger()
 
     try:
-        await message.answer(cmd_message.start, reply_markup=kb.main)
+        await message.answer(cmd_message.start_message, reply_markup=kb.main)
         await state.clear()  # Очистка состояния при старте
         await state.set_state(Generate.selecting_model)  # Устанавливаем состояние выбора модели
     except Exception as err:
         logger.error(f"Ошибка при вводе команды /start: {err}")
-        await message.answer(cmd_message.error)
+        await message.answer(cmd_message.error_message)
 
 
 @logger.catch
@@ -46,7 +46,21 @@ async def change_gpt_model(message: Message, state: FSMContext):
         await state.set_state(Generate.selecting_model)  # Возвращаемся к выбору модели
     except Exception as err:
         logger.error(f"Ошибка при смене модели gpt: {err}")
-        await message.answer(cmd_message.error)
+        await message.answer(cmd_message.error_message)
+
+
+@logger.catch
+@router.message(F.text == "Сброс контекста")
+async def reset_context(message: Message, state: FSMContext):
+    file_logger()
+    telegram_id = message.from_user.id
+    try:
+        from .generators import message_history
+        message_history[telegram_id] = []
+        await message.reply(cmd_message.reset_context_message)
+    except Exception as err:
+        logger.error(f"Ошибка при сбросе контекста: {err}")
+        await message.answer(cmd_message.error_message)
 
 
 @logger.catch
@@ -68,7 +82,6 @@ async def select_model(message: Message, state: FSMContext):
 @logger.catch
 @router.message(Generate.text_input)
 async def process_generation(message: Message, state: FSMContext):
-
     file_logger()
 
     telegram_id = message.from_user.id
@@ -95,11 +108,10 @@ async def process_generation(message: Message, state: FSMContext):
     await message.reply(f"✨ Модель: {model}. Среднее время ожидания: всего 5-19 секунд! ⏱🚀\nПожалуйста, подождите✨")
 
     try:
-        response = await gpt(user_input, model)
+        response = await gpt(user_input, model, telegram_id)
     except Exception as err:
         logger.error(f"Ошибка при генерации ответа gpt: {err}")
-        await message.answer(cmd_message.error)
-        
+        await message.answer(cmd_message.error_message)
         # Возвращаем в состояние ожидания ввода текста
         await state.set_state(Generate.text_input)
         return
@@ -119,8 +131,7 @@ async def process_generation(message: Message, state: FSMContext):
         await state.set_state(Generate.text_input)
     except Exception as err:
         logger.error(f"Ошибка при отправке сообщения: {err}")
-        await message.reply(cmd_message.error)
-        
+        await message.reply(cmd_message.error_message)
         # Возвращаем в состояние ожидания ввода текста
         await state.set_state(Generate.text_input)
         return
