@@ -1,5 +1,4 @@
 import aiomysql
-import os
 
 
 """
@@ -21,7 +20,7 @@ CREATE TABLE message_history (
 
 async def get_connection():
     """Получение соединения с базой данных."""
-    return await aiomysql.connect(user="root", password=os.getenv("DB_PASSWORD"), db="chat_gpt_telegram_bot")
+    return await aiomysql.connect(user="root", db="chat_gpt_telegram_bot")
 
 
 async def user_exists(telegram_id: int) -> bool:
