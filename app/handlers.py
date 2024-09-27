@@ -4,6 +4,7 @@ from aiogram.filters import CommandStart
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from loguru import logger
+import time
 
 from app.generators import gpt
 from logger import file_logger
@@ -11,15 +12,13 @@ from app import cmd_message
 from app.count_token import count_tokens
 import app.keyboards as kb
 from app.split_text import split_text
-
-
-"""
-175 рублей (300 000 токенов на gpt-4o + 1 000 000 токенов на gpt-4o-mini)
-При стоимости в 299, моржа становиться около 124 рубля за одну подписку
-"""
+from .database.db import clear_message_history
 
 
 router = Router()
+
+# Переменная для хранения времени последнего сообщения
+last_message_time = {}
 
 
 class Generate(StatesGroup):
@@ -61,13 +60,12 @@ async def reset_context(message: Message, state: FSMContext):
     file_logger()
     telegram_id = message.from_user.id
     try:
-        from app.generators import message_history
-        message_history[telegram_id] = []
+        # Очищаем контекст сообщений в базе данных
+        await clear_message_history(telegram_id)
         await message.reply(cmd_message.reset_context_message)
     except Exception as err:
         logger.error(f"Ошибка при сбросе контекста: {err}")
         await message.answer(cmd_message.error_message)
-
 
 @logger.catch
 @router.message(F.text.in_(["Модель 4-o", "Модель 4-o-mini"]))
@@ -91,18 +89,30 @@ async def process_generation(message: Message, state: FSMContext):
     file_logger()
 
     telegram_id = message.from_user.id
+    current_time = time.time()
+    
+    # Проверяем время последнего сообщения
+    if telegram_id in last_message_time and current_time - last_message_time[telegram_id] < 1:
+        # Если интервал между сообщениями меньше 0.5 секунд, не обрабатываем
+        return
 
-    # Тут должна быть проверка из базы данных на статус подписки
-    # Но пока что только тупая проверка на telegram_id
+    last_message_time[telegram_id] = current_time
 
+    # Проверка подписки пользователя
     if telegram_id not in [2050793273, 857805093]:
         await message.answer("Извините, вам отказано в доступе, скоро бот выйдет в общее пользование!")
         return
 
-
     data = await state.get_data()
     model = data.get("model")
     user_input = message.text
+
+    # Проверяем длину сообщения
+    if len(user_input) >= 4096:
+        await message.answer("Сообщение слишком длинное. Пожалуйста, сократите его длину до 4096 символов.")
+        # Возвращаем в состояние ожидания ввода текста
+        await state.set_state(Generate.text_input)
+        return
 
     # Проверяем текущее состояние
     current_state = await state.get_state()
@@ -130,13 +140,13 @@ async def process_generation(message: Message, state: FSMContext):
         response_parts = split_text(response)
         for part in response_parts:
             await message.reply(
-                f"Ваш ответ, полученный с помощью {model}:\n\n{part}\n\nКол-во токенов: {count_tokens(user_input + part)}", 
+                f"Ваш ответ, полученный с помощью {model}:\n\n{part}\n\nКол-во токенов на input: {count_tokens(user_input)}\nКол-во токенов на output: {count_tokens(part)}", 
                 parse_mode="Markdown",
                 reply_markup=await kb.change_model(model)  # Кнопка для смены модели
             )
         logger.info("Ответ gpt получен и отправлен пользователю")
         
-        # Возвращаем в состоянии ожидания ввода текста
+        # Возвращаем в состояние ожидания ввода текста
         await state.set_state(Generate.text_input)
     except Exception as err:
         logger.error(f"Ошибка при отправке сообщения: {err}")

@@ -16,5 +16,5 @@ async def change_model(model: str):
         KeyboardButton(text="Сброс контекста")]
     ],
         resize_keyboard=True,
-        input_field_placeholder=f"Вы используете модель {model}...")
+        input_field_placeholder=f"Модель {model}...")
     return change_model
