@@ -13,6 +13,7 @@ from app.count_token import count_tokens
 import app.keyboards as kb
 from app.split_text import split_text
 from .database.db import clear_message_history
+from app.call_count_gpt import count_calls
 
 
 router = Router()
@@ -67,13 +68,22 @@ async def reset_context(message: Message, state: FSMContext):
         logger.error(f"Ошибка при сбросе контекста: {err}")
         await message.answer(cmd_message.error_message)
 
+
 @logger.catch
-@router.message(F.text.in_(["Модель 4-o", "Модель 4-o-mini"]))
+@router.message(F.text == "❌Модель 4-o❌")
+async def non_gpt_4o(message: Message, state: FSMContext):
+    file_logger()
+    await message.reply(f"Модель gpt-4o в режиме альфа тестирования недоступна, доступна только модель gpt-4o-mini")
+    return
+
+
+@logger.catch
+@router.message(F.text.in_(["❌Модель 4-o❌", "✅Модель 4-o-mini✅"]))
 async def select_model(message: Message, state: FSMContext):
     file_logger()
     model_mapping = {
-        "Модель 4-o": "gpt-4o",
-        "Модель 4-o-mini": "gpt-4o-mini"
+        "❌Модель 4-o❌": "gpt-4o",
+        "✅Модель 4-o-mini✅": "gpt-4o-mini"
     }
     model = model_mapping.get(message.text)
     
@@ -85,6 +95,7 @@ async def select_model(message: Message, state: FSMContext):
 
 @logger.catch
 @router.message(Generate.text_input)
+@count_calls()
 async def process_generation(message: Message, state: FSMContext):
     file_logger()
 
@@ -98,10 +109,10 @@ async def process_generation(message: Message, state: FSMContext):
 
     last_message_time[telegram_id] = current_time
 
-    # Проверка подписки пользователя
-    if telegram_id not in [2050793273, 857805093]:
-        await message.answer("Извините, вам отказано в доступе, скоро бот выйдет в общее пользование!")
-        return
+    # # Проверка подписки пользователя
+    # if telegram_id not in [2050793273, 857805093]:
+    #     await message.answer("Извините, вам отказано в доступе, скоро бот выйдет в общее пользование!")
+    #     return
 
     data = await state.get_data()
     model = data.get("model")

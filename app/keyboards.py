@@ -3,8 +3,8 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
 # Главное меню с выбором модели
 main = ReplyKeyboardMarkup(keyboard=[
-    [KeyboardButton(text="Модель 4-o")],
-    [KeyboardButton(text="Модель 4-o-mini")]
+    [KeyboardButton(text="❌Модель 4-o❌")],
+    [KeyboardButton(text="✅Модель 4-o-mini✅")]
 ],
     resize_keyboard=True,
     input_field_placeholder="Выберите модель...")
