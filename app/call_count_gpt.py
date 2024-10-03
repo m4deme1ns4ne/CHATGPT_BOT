@@ -4,7 +4,7 @@ import time
 
 
 # Декоратор для подсчета вызовов функции с обновлением счетчика через reset_interval с использованием asyncio
-def count_calls(limit=20, reset_interval=86400):  # 86400 секунд = 24 часа
+def count_calls(limit=10, reset_interval=86400):  # 86400 секунд = 24 часа
     def decorator(func):
         call_data = {}
 

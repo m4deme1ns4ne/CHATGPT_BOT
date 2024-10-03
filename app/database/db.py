@@ -18,7 +18,7 @@ CREATE TABLE message_history (
 );
 """
 
-async def get_connection():
+async def get_connection() -> None:
     """Получение соединения с базой данных."""
     return await aiomysql.connect(user="root", db="chat_gpt_telegram_bot")
 
@@ -37,7 +37,7 @@ async def user_exists(telegram_id: int) -> bool:
         conn.close()
 
 
-async def add_user(telegram_id: int):
+async def add_user(telegram_id: int) -> None:
     """Добавление нового пользователя в таблицу users."""
     conn = await get_connection()
     try:
@@ -50,7 +50,7 @@ async def add_user(telegram_id: int):
         conn.close()
 
 
-async def get_message_history(telegram_id: int, limit: int = 2):
+async def get_message_history(telegram_id: int, limit: int = 2) -> None:
     """Получение последних сообщений из истории пользователя."""
     conn = await get_connection()
     try:
@@ -98,7 +98,7 @@ async def save_message_history(telegram_id: int, messages: list):
         conn.close()
 
 
-async def clear_message_history(telegram_id: int):
+async def clear_message_history(telegram_id: int) -> None:
     """Удаление всей истории сообщений пользователя."""
     conn = await get_connection()
     try:

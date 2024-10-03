@@ -1,6 +1,6 @@
-from aiogram import F, Router
+from aiogram import F, Router, Bot
 from aiogram.types import Message
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from loguru import logger
@@ -70,14 +70,6 @@ async def reset_context(message: Message, state: FSMContext):
 
 
 @logger.catch
-@router.message(F.text == "❌Модель 4-o❌")
-async def non_gpt_4o(message: Message, state: FSMContext):
-    file_logger()
-    await message.reply(f"Модель gpt-4o в режиме альфа тестирования недоступна, доступна только модель gpt-4o-mini")
-    return
-
-
-@logger.catch
 @router.message(F.text.in_(["❌Модель 4-o❌", "✅Модель 4-o-mini✅"]))
 async def select_model(message: Message, state: FSMContext):
     file_logger()
@@ -96,8 +88,10 @@ async def select_model(message: Message, state: FSMContext):
 @logger.catch
 @router.message(Generate.text_input)
 @count_calls()
-async def process_generation(message: Message, state: FSMContext):
+async def process_generation(message: Message, state: FSMContext, bot: Bot):
     file_logger()
+
+    await bot.send_chat_action(message.chat.id, "typing")
 
     telegram_id = message.from_user.id
     current_time = time.time()
@@ -109,60 +103,66 @@ async def process_generation(message: Message, state: FSMContext):
 
     last_message_time[telegram_id] = current_time
 
-    # # Проверка подписки пользователя
-    # if telegram_id not in [2050793273, 857805093]:
-    #     await message.answer("Извините, вам отказано в доступе, скоро бот выйдет в общее пользование!")
-    #     return
-
     data = await state.get_data()
     model = data.get("model")
     user_input = message.text
 
-    # Проверяем длину сообщения
+    if model == "gpt-4o" and telegram_id != 857805093:
+        await message.reply(f"Модель gpt-4o в режиме альфа тестирования недоступна, доступна только модель gpt-4o-mini")
+        return
+
     if len(user_input) >= 4096:
         await message.answer("Сообщение слишком длинное. Пожалуйста, сократите его длину до 4096 символов.")
-        # Возвращаем в состояние ожидания ввода текста
         await state.set_state(Generate.text_input)
         return
 
-    # Проверяем текущее состояние
     current_state = await state.get_state()
 
     if current_state == Generate.waiting_for_response.state:
         await message.reply("Пожалуйста, дождитесь завершения обработки предыдущего запроса.")
         return
 
-    # Устанавливаем состояние ожидания
     await state.set_state(Generate.waiting_for_response)
 
-    await message.reply(f"✨ Модель: {model}. Среднее время ожидания: всего 5-19 секунд! ⏱🚀\nПожалуйста, подождите✨")
+    # Отправляем сообщение с ожиданием и сохраняем его ID
+    waiting_message = await message.reply(f"✨ Модель: {model}. Среднее время ожидания: всего 5-19 секунд! ⏱🚀\nПожалуйста, подождите✨")
 
     try:
+        await bot.send_chat_action(message.chat.id, "typing")
         response = await gpt(user_input, model, telegram_id)
     except Exception as err:
         logger.error(f"Ошибка при генерации ответа gpt: {err}")
         await message.answer(cmd_message.error_message)
-        # Возвращаем в состояние ожидания ввода текста
         await state.set_state(Generate.text_input)
         return
 
     try:
-        # Разделяем ответ на части по 4096 символов
         response_parts = split_text(response)
-        for part in response_parts:
-            await message.reply(
-                f"Ваш ответ, полученный с помощью {model}:\n\n{part}\n\nКол-во токенов на input: {count_tokens(user_input)}\nКол-во токенов на output: {count_tokens(part)}", 
-                parse_mode="Markdown",
-                reply_markup=await kb.change_model(model)  # Кнопка для смены модели
+        first_part = response_parts[0]
+        await bot.edit_message_text(
+            chat_id=waiting_message.chat.id,
+            message_id=waiting_message.message_id,
+            text=first_part,
+            parse_mode="Markdown"
+        )
+        await message.answer(
+            f"Model: {model}\nNumber of tokens per input: {count_tokens(user_input)}\nNumber of tokens per output: {count_tokens(first_part)}"
             )
-        logger.info("Ответ gpt получен и отправлен пользователю")
         
-        # Возвращаем в состояние ожидания ввода текста
+        # Отправляем оставшиеся части (если они есть) новыми сообщениями
+        for part in response_parts[1:]:
+            await message.reply(
+                part, 
+                parse_mode="Markdown"
+            )     
+            await message.answer(
+                f"Model: {model}\nNumber of tokens per input: {count_tokens(user_input)}\nNumber of tokens per output: {count_tokens(part)}"
+                )
+        logger.info("Ответ gpt получен и отправлен пользователю")
         await state.set_state(Generate.text_input)
     except Exception as err:
         logger.error(f"Ошибка при отправке сообщения: {err}")
         await message.reply(cmd_message.error_message)
-        # Возвращаем в состояние ожидания ввода текста
         await state.set_state(Generate.text_input)
         return
 
@@ -171,7 +171,6 @@ async def process_generation(message: Message, state: FSMContext):
 @router.message(F.text)
 async def error_handling(message: Message, state: FSMContext):
     current_state = await state.get_state()
-
     if current_state == Generate.waiting_for_response.state:
         await message.reply("Пожалуйста, дождитесь завершения обработки предыдущего запроса.")
     elif current_state == Generate.text_input.state:
