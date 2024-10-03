@@ -14,12 +14,10 @@ import app.keyboards as kb
 from app.split_text import split_text
 from .database.db import clear_message_history
 from app.call_count_gpt import count_calls
+from .database.redis import check_time_spacing_between_messages
 
 
 router = Router()
-
-# Переменная для хранения времени последнего сообщения
-last_message_time = {}
 
 
 class Generate(StatesGroup):
@@ -97,11 +95,9 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
     current_time = time.time()
     
     # Проверяем время последнего сообщения
-    if telegram_id in last_message_time and current_time - last_message_time[telegram_id] < 1:
+    if not check_time_spacing_between_messages(telegram_id):
         # Если интервал между сообщениями меньше 0.5 секунд, не обрабатываем
         return
-
-    last_message_time[telegram_id] = current_time
 
     data = await state.get_data()
     model = data.get("model")
