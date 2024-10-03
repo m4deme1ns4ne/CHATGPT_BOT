@@ -152,7 +152,7 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
                 parse_mode="Markdown"
             )     
             await message.answer(
-                f"Model: {model}\nNumber of tokens per input: {count_tokens(user_input)}\nNumber of tokens per output: {count_tokens(part)}"
+                f"Model: {model}\nNumber of tokens per input: {count_tokens(user_input)}\nNumber of tokens per output: {count_tokens(part)}\nVersion: 1.7a"
                 )
         logger.info("Ответ gpt получен и отправлен пользователю")
         await state.set_state(Generate.text_input)
