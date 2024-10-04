@@ -1,6 +1,5 @@
 import asyncio
-import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from functools import wraps
 from .database.db import (get_users_call_data, update_users_call_data, reset_users_call_data,
                           increase_call_count)
@@ -11,7 +10,7 @@ from logger import file_logger
 
 # Декоратор для подсчета вызовов функции с использованием MySQL
 @logger.catch
-def count_calls(limit=10, reset_interval=86400):
+def count_calls(limit=2, reset_interval=15):
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
