@@ -10,7 +10,7 @@ from logger import file_logger
 
 # Декоратор для подсчета вызовов функции с использованием MySQL
 @logger.catch
-def count_calls(limit=2, reset_interval=15):
+def count_calls(limit=10, reset_interval=86400):
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):

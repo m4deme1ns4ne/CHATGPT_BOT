@@ -1,5 +1,5 @@
 import aiomysql
-import time
+import datetime
 
 
 """
@@ -133,7 +133,7 @@ async def update_users_call_data(telegram_id, count, last_reset):
                 "UPDATE users SET count = %s, last_reset = %s WHERE telegram_id = %s",
                 (count, last_reset, telegram_id)
             )
-        await conn.commit()  # Необходимо выполнить commit для сохранения изменений
+        await conn.commit()
     finally:
         conn.close()
 
@@ -144,7 +144,7 @@ async def reset_users_call_data(telegram_id):
         async with conn.cursor() as cursor:
             await cursor.execute(
                 "UPDATE users SET count = 0, last_reset = %s WHERE telegram_id = %s",
-                (time.time(), telegram_id)
+                (datetime.now(), telegram_id)  # Используем datetime.now() вместо time.time()
             )
         await conn.commit()
     finally:
@@ -162,12 +162,3 @@ async def increase_call_count(telegram_id):
         await conn.commit()
     finally:
         conn.close()
-
-# Функция для получения данных вызово из таблицы users
-async def get_users_call_data__(telegram_id):
-    conn = await get_connection()
-    async with conn.cursor() as cursor:
-        await cursor.execute(
-            "SELECT count FROM users WHERE telegram_id = %s", (telegram_id,)
-        )
-        return await cursor.fetchone()

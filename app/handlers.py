@@ -141,7 +141,7 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
         )
         if telegram_id == 857805093:
             await message.answer(
-                f"Model: {model}\nNumber of tokens per input: {count_tokens(user_input)}\nNumber of tokens per output: {count_tokens(first_part)}\nVersion: 2.0a"
+                f"Model: {model}\nNumber of tokens per input: {count_tokens(user_input)}\nNumber of tokens per output: {count_tokens(first_part)}\nVersion: 2.1.1a"
                 )
         
         # Отправляем оставшиеся части (если они есть) новыми сообщениями
@@ -152,7 +152,7 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
             )
             if telegram_id == 857805093:
                 await message.answer(
-                    f"Model: {model}\nNumber of tokens per input: {count_tokens(user_input)}\nNumber of tokens per output: {count_tokens(part)}\nVersion: 2.0a"
+                    f"Model: {model}\nNumber of tokens per input: {count_tokens(user_input)}\nNumber of tokens per output: {count_tokens(part)}\nVersion: 2.1.1a"
                     )
         logger.info(f"Ответ gpt получен и отправлен пользователю: {telegram_id}")
         await state.set_state(Generate.text_input)
