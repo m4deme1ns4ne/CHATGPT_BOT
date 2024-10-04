@@ -4,7 +4,6 @@ from aiogram.filters import CommandStart, Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from loguru import logger
-import time
 
 from app.generators import gpt
 from logger import file_logger
@@ -14,7 +13,7 @@ import app.keyboards as kb
 from app.split_text import split_text
 from .database.db import clear_message_history
 from app.call_count_gpt import count_calls
-from .database.redis import check_time_spacing_between_messages
+from .database.redis import check_time_spacing_between_messages, del_redis_id
 
 
 router = Router()
@@ -94,7 +93,7 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
     telegram_id = message.from_user.id
     
     # Проверяем время последнего сообщения
-    if not check_time_spacing_between_messages(telegram_id):
+    if not await check_time_spacing_between_messages(telegram_id):
         # Если интервал между сообщениями меньше 0.5 секунд, не обрабатываем
         return
 
@@ -140,9 +139,10 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
             text=first_part,
             parse_mode="Markdown"
         )
-        await message.answer(
-            f"Model: {model}\nNumber of tokens per input: {count_tokens(user_input)}\nNumber of tokens per output: {count_tokens(first_part)}\nVersion: 1.7a2"
-            )
+        if telegram_id == 857805093:
+            await message.answer(
+                f"Model: {model}\nNumber of tokens per input: {count_tokens(user_input)}\nNumber of tokens per output: {count_tokens(first_part)}\nVersion: 2.0a"
+                )
         
         # Отправляем оставшиеся части (если они есть) новыми сообщениями
         for part in response_parts[1:]:
@@ -150,11 +150,13 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
                 part, 
                 parse_mode="Markdown"
             )
-            await message.answer(
-                f"Model: {model}\nNumber of tokens per input: {count_tokens(user_input)}\nNumber of tokens per output: {count_tokens(part)}\nVersion: 1.7a2"
-                )
-        logger.info("Ответ gpt получен и отправлен пользователю")
+            if telegram_id == 857805093:
+                await message.answer(
+                    f"Model: {model}\nNumber of tokens per input: {count_tokens(user_input)}\nNumber of tokens per output: {count_tokens(part)}\nVersion: 2.0a"
+                    )
+        logger.info(f"Ответ gpt получен и отправлен пользователю: {telegram_id}")
         await state.set_state(Generate.text_input)
+        await del_redis_id(telegram_id)
     except Exception as err:
         logger.error(f"Ошибка при отправке сообщения: {err}")
         await message.reply(cmd_message.error_message)
