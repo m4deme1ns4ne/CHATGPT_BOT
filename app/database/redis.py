@@ -22,10 +22,15 @@ def check_time_spacing_between_messages(telegram_id: int) -> bool:
             return False
         # Сохраняем текущее время сообщения в Redis
         redis_client.set(telegram_id, current_time)
+
+        # Добавляем таймер исчезновения в размере 3-х минут для переменной
+        redis_client.expire(telegram_id, 180)
+
         return True
     
     except Exception as err:
         logger.error(f'Ошибка при работе с redis: {err}')
+        return False
 
     finally:
         redis_client.close()

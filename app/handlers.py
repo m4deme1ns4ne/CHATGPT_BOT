@@ -92,7 +92,6 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
     await bot.send_chat_action(message.chat.id, "typing")
 
     telegram_id = message.from_user.id
-    current_time = time.time()
     
     # Проверяем время последнего сообщения
     if not check_time_spacing_between_messages(telegram_id):
@@ -150,7 +149,7 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
             await message.reply(
                 part, 
                 parse_mode="Markdown"
-            )     
+            )
             await message.answer(
                 f"Model: {model}\nNumber of tokens per input: {count_tokens(user_input)}\nNumber of tokens per output: {count_tokens(part)}\nVersion: 1.7a2"
                 )

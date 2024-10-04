@@ -1,11 +1,14 @@
 import aiomysql
+import time
 
 
 """
 CREATE TABLE users (
-    telegram_id INT PRIMARY KEY,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    telegram_id INT PRIMARY KEY
 );
+
+ALTER TABLE users ADD COLUMN count INT DEFAULT 0;
+ALTER TABLE users ADD COLUMN last_reset TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 
 CREATE TABLE message_history (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -23,7 +26,7 @@ async def get_connection() -> None:
     return await aiomysql.connect(user="root", db="chat_gpt_telegram_bot")
 
 
-async def user_exists(telegram_id: int) -> bool:
+async def users_exists(telegram_id: int) -> bool:
     """Проверка, существует ли пользователь в таблице users."""
     conn = await get_connection()
     try:
@@ -37,7 +40,7 @@ async def user_exists(telegram_id: int) -> bool:
         conn.close()
 
 
-async def add_user(telegram_id: int) -> None:
+async def add_users(telegram_id: int) -> None:
     """Добавление нового пользователя в таблицу users."""
     conn = await get_connection()
     try:
@@ -110,3 +113,61 @@ async def clear_message_history(telegram_id: int) -> None:
             await conn.commit()
     finally:
         conn.close()
+
+
+# Функция для получения данных пользователя из таблицы users
+async def get_users_call_data(telegram_id):
+    conn = await get_connection()
+    async with conn.cursor() as cursor:
+        await cursor.execute(
+            "SELECT count, last_reset FROM users WHERE telegram_id = %s", (telegram_id,)
+        )
+        return await cursor.fetchone()
+
+# Функция для обновления данных пользователя
+async def update_users_call_data(telegram_id, count, last_reset):
+    conn = await get_connection()
+    try:
+        async with conn.cursor() as cursor:
+            await cursor.execute(
+                "UPDATE users SET count = %s, last_reset = %s WHERE telegram_id = %s",
+                (count, last_reset, telegram_id)
+            )
+        await conn.commit()  # Необходимо выполнить commit для сохранения изменений
+    finally:
+        conn.close()
+
+# Функция для сброса счетчика вызовов
+async def reset_users_call_data(telegram_id):
+    conn = await get_connection()
+    try:
+        async with conn.cursor() as cursor:
+            await cursor.execute(
+                "UPDATE users SET count = 0, last_reset = %s WHERE telegram_id = %s",
+                (time.time(), telegram_id)
+            )
+        await conn.commit()
+    finally:
+        conn.close()
+
+# Функция для увеличения счётчика вызова call_count
+async def increase_call_count(telegram_id):
+    conn = await get_connection()
+    try:
+        async with conn.cursor() as cursor:
+            await cursor.execute(
+                "UPDATE users SET count = count + 1 WHERE telegram_id = %s",
+                (telegram_id,)
+            )
+        await conn.commit()
+    finally:
+        conn.close()
+
+# Функция для получения данных вызово из таблицы users
+async def get_users_call_data__(telegram_id):
+    conn = await get_connection()
+    async with conn.cursor() as cursor:
+        await cursor.execute(
+            "SELECT count FROM users WHERE telegram_id = %s", (telegram_id,)
+        )
+        return await cursor.fetchone()

@@ -1,6 +1,6 @@
 from loguru import logger
 from logger import file_logger
-from .database.db import get_message_history, save_message_history, user_exists, add_user
+from .database.db import get_message_history, save_message_history, users_exists, add_users
 from openai import AsyncOpenAI
 import httpx
 import os
@@ -24,8 +24,8 @@ async def get_openai_client():
 async def gpt(question: str, model_gpt: str, telegram_id: int) -> str:
     try:
         # Проверяем, существует ли пользователь, если нет — добавляем
-        if not await user_exists(telegram_id):
-            await add_user(telegram_id)
+        if not await users_exists(telegram_id):
+            await add_users(telegram_id)
             logger.info(f"Добавлен новый пользователь с telegram_id: {telegram_id}")
 
         # Получаем историю сообщений для пользователя
