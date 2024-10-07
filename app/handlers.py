@@ -18,6 +18,8 @@ from .database.redis import check_time_spacing_between_messages, del_redis_id
 
 router = Router()
 
+file_logger()
+
 
 class Generate(StatesGroup):
     selecting_model = State()           # Состояние выбора модели
@@ -28,9 +30,6 @@ class Generate(StatesGroup):
 @logger.catch
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
-
-    file_logger()
-
     try:
         await message.answer(cmd_message.start_message, reply_markup=kb.main)
         await state.clear()  # Очистка состояния при старте
@@ -43,7 +42,6 @@ async def cmd_start(message: Message, state: FSMContext):
 @logger.catch
 @router.message(F.text == "Поменять модель gpt")
 async def change_gpt_model(message: Message, state: FSMContext):
-    file_logger()
     try:
         await message.answer("Выберите новую модель gpt:", reply_markup=kb.main)
         await state.set_state(Generate.selecting_model)  # Возвращаемся к выбору модели
@@ -55,7 +53,6 @@ async def change_gpt_model(message: Message, state: FSMContext):
 @logger.catch
 @router.message(F.text == "Сброс контекста")
 async def reset_context(message: Message, state: FSMContext):
-    file_logger()
     telegram_id = message.from_user.id
     try:
         # Очищаем контекст сообщений в базе данных
@@ -69,7 +66,6 @@ async def reset_context(message: Message, state: FSMContext):
 @logger.catch
 @router.message(F.text.in_(["❌Модель 4-o❌", "✅Модель 4-o-mini✅"]))
 async def select_model(message: Message, state: FSMContext):
-    file_logger()
     model_mapping = {
         "❌Модель 4-o❌": "gpt-4o",
         "✅Модель 4-o-mini✅": "gpt-4o-mini"
@@ -86,7 +82,6 @@ async def select_model(message: Message, state: FSMContext):
 @router.message(Generate.text_input)
 @count_calls()
 async def process_generation(message: Message, state: FSMContext, bot: Bot):
-    file_logger()
 
     await bot.send_chat_action(message.chat.id, "typing")
 

@@ -1,5 +1,5 @@
 import aiomysql
-import datetime
+from datetime import datetime
 
 
 """
@@ -144,7 +144,7 @@ async def reset_users_call_data(telegram_id):
         async with conn.cursor() as cursor:
             await cursor.execute(
                 "UPDATE users SET count = 0, last_reset = %s WHERE telegram_id = %s",
-                (datetime.now(), telegram_id)  # Используем datetime.now() вместо time.time()
+                (datetime.now(), telegram_id)
             )
         await conn.commit()
     finally:
