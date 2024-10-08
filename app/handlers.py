@@ -14,6 +14,7 @@ from app.split_text import split_text
 from .database.db import clear_message_history
 from app.call_count_gpt import count_calls
 from .database.redis import check_time_spacing_between_messages, del_redis_id
+from .calculate_message_length import calculate_message_length
 
 
 router = Router()
@@ -99,9 +100,11 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
     if model == "gpt-4o" and telegram_id != 857805093:
         await message.reply(f"Модель gpt-4o в режиме альфа тестирования недоступна, доступна только модель gpt-4o-mini")
         return
+    
+    lenght_message_user = calculate_message_length(user_input)
 
-    if len(user_input) >= 4096:
-        await message.answer("Сообщение слишком длинное. Пожалуйста, сократите его длину до 4096 символов.")
+    if lenght_message_user >= 4096:
+        await message.answer(f"Сообщение слишком длинное. Пожалуйста, сократите его длину до 4096 символов.\n\nДлина отправленного сообщения: {lenght_message_user}")
         await state.set_state(Generate.text_input)
         return
 
@@ -136,7 +139,7 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
         )
         if telegram_id == 857805093:
             await message.answer(
-                f"Model: {model}\nNumber of tokens per input: {count_tokens(user_input)}\nNumber of tokens per output: {count_tokens(first_part)}\nVersion: 2.1.1a"
+                f"Model: {model}\nNumber of tokens per input: {count_tokens(user_input)}\nNumber of tokens per output: {count_tokens(first_part)}"
                 )
         
         # Отправляем оставшиеся части (если они есть) новыми сообщениями
@@ -147,7 +150,7 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
             )
             if telegram_id == 857805093:
                 await message.answer(
-                    f"Model: {model}\nNumber of tokens per input: {count_tokens(user_input)}\nNumber of tokens per output: {count_tokens(part)}\nVersion: 2.1.1a"
+                    f"Model: {model}\nNumber of tokens per input: {count_tokens(user_input)}\nNumber of tokens per output: {count_tokens(part)}"
                     )
         logger.info(f"Ответ gpt получен и отправлен пользователю: {telegram_id}")
         await state.set_state(Generate.text_input)
