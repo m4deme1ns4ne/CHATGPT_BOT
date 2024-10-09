@@ -15,6 +15,7 @@ from .database.db import clear_message_history
 from app.call_count_gpt import count_calls
 from .database.redis import check_time_spacing_between_messages, del_redis_id
 from .calculate_message_length import calculate_message_length
+from .escape_markdown import escape_markdown
 
 
 router = Router()
@@ -122,6 +123,7 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
     try:
         await bot.send_chat_action(message.chat.id, "typing")
         response = await gpt(user_input, model, telegram_id)
+        response = escape_markdown(response)
     except Exception as err:
         logger.error(f"Ошибка при генерации ответа gpt: {err}")
         await message.answer(cmd_message.error_message)
@@ -135,7 +137,7 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
             chat_id=waiting_message.chat.id,
             message_id=waiting_message.message_id,
             text=first_part,
-            parse_mode="Markdown"
+            parse_mode="MarkdownV2"
         )
         if telegram_id == 857805093:
             await message.answer(
@@ -146,7 +148,7 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
         for part in response_parts[1:]:
             await message.reply(
                 part, 
-                parse_mode="Markdown"
+                parse_mode="MarkdownV2"
             )
             if telegram_id == 857805093:
                 await message.answer(
