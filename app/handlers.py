@@ -42,7 +42,7 @@ async def cmd_start(message: Message, state: FSMContext):
 
 
 @logger.catch
-@router.message(F.text == "Поменять модель gpt")
+@router.message(F.text == "Поменять модель gpt 🤖")
 async def change_gpt_model(message: Message, state: FSMContext):
     try:
         await message.answer("Выберите новую модель gpt:", reply_markup=kb.main)
@@ -53,7 +53,7 @@ async def change_gpt_model(message: Message, state: FSMContext):
 
 
 @logger.catch
-@router.message(F.text == "Сброс контекста")
+@router.message(F.text == "Сброс контекста 🔄")
 async def reset_context(message: Message, state: FSMContext):
     telegram_id = message.from_user.id
     try:
@@ -137,7 +137,8 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
             chat_id=waiting_message.chat.id,
             message_id=waiting_message.message_id,
             text=first_part,
-            parse_mode="MarkdownV2"
+            parse_mode="MarkdownV2",
+            reply_markup=kb.report_an_error
         )
         if telegram_id == 857805093:
             await message.answer(
@@ -148,11 +149,12 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
         for part in response_parts[1:]:
             await message.reply(
                 part, 
-                parse_mode="MarkdownV2"
+                parse_mode="MarkdownV2",
+                reply_markup=kb.report_an_error
             )
             if telegram_id == 857805093:
                 await message.answer(
-                    f"Model: {model}\nNumber of tokens per input: {count_tokens(user_input)}\nNumber of tokens per output: {count_tokens(part)}"
+                    f"Model: {model}\nNumber of tokens per input: {count_tokens(user_input)}\nNumber of tokens per output: {count_tokens(part)}",
                     )
         logger.info(f"Ответ gpt получен и отправлен пользователю: {telegram_id}")
         await state.set_state(Generate.text_input)
