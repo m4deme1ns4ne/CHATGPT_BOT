@@ -9,7 +9,7 @@ from app.handlers import router
 
 
 @logger.catch
-async def main():
+async def main() -> None:
 
     load_dotenv()
     file_logger()

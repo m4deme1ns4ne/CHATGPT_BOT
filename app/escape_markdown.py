@@ -1,5 +1,7 @@
 def escape_markdown(text: str) -> str:
+
     import re
+    
     """
     Экранировать символы в Markdown-разметке для передачи в Telegram.
     """

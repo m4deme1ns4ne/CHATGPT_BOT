@@ -3,6 +3,7 @@ from aiogram.types import Message
 from aiogram.filters import CommandStart, Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
+from aiogram.enums import ParseMode
 from loguru import logger
 
 from app.generators import gpt
@@ -31,30 +32,40 @@ class Generate(StatesGroup):
 
 @logger.catch
 @router.message(CommandStart())
-async def cmd_start(message: Message, state: FSMContext):
+async def cmd_start(message: Message, state: FSMContext, bot: Bot):
     try:
         await message.answer(cmd_message.start_message, reply_markup=kb.main)
         await state.clear()  # Очистка состояния при старте
         await state.set_state(Generate.selecting_model)  # Устанавливаем состояние выбора модели
     except Exception as err:
         logger.error(f"Ошибка при вводе команды /start: {err}")
-        await message.answer(cmd_message.error_message)
+        await bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=message.message_id,
+            text=cmd_message.error_message,
+            reply_markup=kb.report_an_error
+            )
 
 
 @logger.catch
 @router.message(F.text == "Поменять модель gpt 🤖")
-async def change_gpt_model(message: Message, state: FSMContext):
+async def change_gpt_model(message: Message, state: FSMContext, bot: Bot):
     try:
         await message.answer("Выберите новую модель gpt:", reply_markup=kb.main)
         await state.set_state(Generate.selecting_model)  # Возвращаемся к выбору модели
     except Exception as err:
         logger.error(f"Ошибка при смене модели gpt: {err}")
-        await message.answer(cmd_message.error_message)
+        await bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=message.message_id,
+            text=cmd_message.error_message,
+            reply_markup=kb.report_an_error
+            )
 
 
 @logger.catch
 @router.message(F.text == "Сброс контекста 🔄")
-async def reset_context(message: Message, state: FSMContext):
+async def reset_context(message: Message, state: FSMContext, bot: Bot):
     telegram_id = message.from_user.id
     try:
         # Очищаем контекст сообщений в базе данных
@@ -62,7 +73,12 @@ async def reset_context(message: Message, state: FSMContext):
         await message.reply(cmd_message.reset_context_message)
     except Exception as err:
         logger.error(f"Ошибка при сбросе контекста: {err}")
-        await message.answer(cmd_message.error_message)
+        await bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=message.message_id,
+            text=cmd_message.error_message,
+            reply_markup=kb.report_an_error
+            )
 
 
 @logger.catch
@@ -122,46 +138,65 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
 
     try:
         await bot.send_chat_action(message.chat.id, "typing")
-        response = await gpt(user_input, model, telegram_id)
-        response = escape_markdown(response)
+        text_from_gpt = await gpt(user_input, model, telegram_id)
+        response = escape_markdown(text_from_gpt)
     except Exception as err:
         logger.error(f"Ошибка при генерации ответа gpt: {err}")
-        await message.answer(cmd_message.error_message)
+        await bot.edit_message_text(
+            chat_id=waiting_message.chat.id,
+            message_id=waiting_message.message_id,
+            text=cmd_message.error_message,
+            reply_markup=kb.report_an_error
+            )
         await state.set_state(Generate.text_input)
         return
 
     try:
         response_parts = split_text(response)
-        first_part = response_parts[0]
-        await bot.edit_message_text(
-            chat_id=waiting_message.chat.id,
-            message_id=waiting_message.message_id,
-            text=first_part,
-            parse_mode="MarkdownV2",
-            reply_markup=kb.report_an_error
-        )
-        if telegram_id == 857805093:
-            await message.answer(
-                f"Model: {model}\nNumber of tokens per input: {count_tokens(user_input)}\nNumber of tokens per output: {count_tokens(first_part)}"
+
+        # Инициализация индекса
+        total_parts, index = len(response_parts), 0
+
+        # Цикл while для обработки всех частей списка
+        while index < total_parts:
+            part = response_parts[index]
+
+            if index == 0:
+                # Отправляем первое сообщение – обновляем старое
+                await bot.edit_message_text(
+                    chat_id=waiting_message.chat.id,
+                    message_id=waiting_message.message_id,
+                    text=part,
+                    reply_markup=kb.report_an_error,
+                    parse_mode=ParseMode.MARKDOWN_V2
                 )
-        
-        # Отправляем оставшиеся части (если они есть) новыми сообщениями
-        for part in response_parts[1:]:
-            await message.reply(
-                part, 
-                parse_mode="MarkdownV2",
-                reply_markup=kb.report_an_error
-            )
+            else:
+                # Отправляем новое сообщение для каждой последующей части
+                await message.reply(part,
+                                    reply_markup=kb.report_an_error,
+                                    parse_mode=ParseMode.MARKDOWN_V2
+                                    )
+
+            # Отправляем информацию о модели, если telegram_id соответствует
             if telegram_id == 857805093:
                 await message.answer(
                     f"Model: {model}\nNumber of tokens per input: {count_tokens(user_input)}\nNumber of tokens per output: {count_tokens(part)}",
                     )
+
+            # Увеличиваем индекс для перехода к следующей части
+            index += 1
+        
         logger.info(f"Ответ gpt получен и отправлен пользователю: {telegram_id}")
         await state.set_state(Generate.text_input)
         await del_redis_id(telegram_id)
     except Exception as err:
         logger.error(f"Ошибка при отправке сообщения: {err}")
-        await message.reply(cmd_message.error_message)
+        await bot.edit_message_text(
+            chat_id=waiting_message.chat.id,
+            message_id=waiting_message.message_id,
+            text=cmd_message.error_message,
+            reply_markup=kb.report_an_error
+            )
         await state.set_state(Generate.text_input)
         return
 
