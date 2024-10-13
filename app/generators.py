@@ -1,6 +1,7 @@
 from loguru import logger
 from logger import file_logger
-from .database.db import get_message_history, save_message_history, users_exists, add_users
+from .database.db import (get_message_history, save_message_history, 
+                          users_exists, add_users)
 from openai import AsyncOpenAI
 import httpx
 import os
@@ -35,8 +36,8 @@ async def gpt(question: str, model_gpt: str, telegram_id: int) -> str:
         message_history.append({"role": "user", "content": str(question)})
 
         # Ограничиваем историю двумя последними сообщениями
-        if len(message_history) > 2:
-            message_history = message_history[-2:]
+        if len(message_history) > 6:
+            message_history = message_history[-6:]
 
         # Создаем клиент OpenAI
         client = await get_openai_client()
@@ -52,8 +53,8 @@ async def gpt(question: str, model_gpt: str, telegram_id: int) -> str:
         message_history.append({"role": "assistant", "content": gpt_response})
 
         # Ограничиваем историю двумя последними сообщениями
-        if len(message_history) > 2:
-            message_history = message_history[-2:]
+        if len(message_history) > 6:
+            message_history = message_history[-6:]
 
         # Сохраняем новые сообщения в базу данных и удаляем старые
         await save_message_history(telegram_id, message_history[-2:])

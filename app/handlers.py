@@ -134,7 +134,7 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
     await state.set_state(Generate.waiting_for_response)
 
     # Отправляем сообщение с ожиданием и сохраняем его ID
-    waiting_message = await message.reply(f"✨ Модель: {model}. Среднее время ожидания: всего 5-19 секунд! ⏱🚀\nПожалуйста, подождите✨")
+    waiting_message = await message.reply(f"✨ Модель: {model}.\nСреднее время ожидания: всего 5-19 секунд! ⏱🚀\nПожалуйста, подождите✨")
 
     try:
         await bot.send_chat_action(message.chat.id, "typing")
