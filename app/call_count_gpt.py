@@ -16,7 +16,7 @@ def count_calls(limit=10, reset_interval=86400):
         async def wrapper(*args, **kwargs):
             file_logger()
             try:
-                # Получаем ID пользователя (например, telegram_id)
+                # Получаем telegram_id пользователя
                 message = args[0]
                 telegram_id = message.from_user.id
 
@@ -60,6 +60,9 @@ def count_calls(limit=10, reset_interval=86400):
                             f"ПРЕВЫШЕН ЛИМИТ ЗАПРОСОВ!\n\n"
                             f"Вы можете использовать до {limit} запросов gpt-4o-mini в сутки.\n\n"
                             f"Вы сможете использовать gpt снова через {int(hours)} часов, {int(minutes)} минут и {int(seconds)} секунд."
+                        )
+                        await message.answer_animation(
+                            animation='CgACAgIAAxkBAAIJ4GcK5kGcn4RhiVGJYdnQwMuITvSBAAKXUgAC0zoIS7nqeg0TrWDKNgQ'
                         )
                         return
 
