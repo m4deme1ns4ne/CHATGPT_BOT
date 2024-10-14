@@ -1,6 +1,5 @@
 from aiogram import F, Router, Bot
 from aiogram.types import Message
-from aiogram.filters import CommandStart
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.enums import ParseMode
@@ -31,10 +30,10 @@ class Generate(StatesGroup):
 
 
 @logger.catch
-@router.message(CommandStart())
+@router.message(F.text.in_(["Вернуться в главное меню ↩️", "/start", "Назад ↩️"]))
 async def cmd_start(message: Message, state: FSMContext, bot: Bot):
     try:
-        await message.answer(cmd_message.start_message, reply_markup=kb.main)
+        await message.answer(cmd_message.start_message, reply_markup=kb.most_high_main)
         await state.clear()  # Очистка состояния при старте
         await state.set_state(Generate.selecting_model)  # Устанавливаем состояние выбора модели
     except Exception as err:
@@ -48,13 +47,26 @@ async def cmd_start(message: Message, state: FSMContext, bot: Bot):
 
 
 @logger.catch
-@router.message(F.text == "Поменять модель gpt 🤖")
+@router.message(F.text == "Подписка 🌟")
+async def command_pay(message: Message, state: FSMContext, bot: Bot):
+    await message.reply("Здесь будет информация про подписку...", reply_markup=kb.back)
+
+
+@logger.catch
+@router.message(F.text == "F.A.Q 🤔")
+async def comman_faq(message: Message, state: FSMContext, bot: Bot):
+    await message.reply(cmd_message.faq,
+                        parse_mode=ParseMode.MARKDOWN)
+
+
+@logger.catch
+@router.message(F.text.in_(["Поменять нейросеть ↩️", "Выбрать нейросеть 🧠"]))
 async def change_gpt_model(message: Message, state: FSMContext, bot: Bot):
     try:
-        await message.answer("Выберите новую модель gpt:", reply_markup=kb.main)
+        await message.answer("Выберите нейросеть 🤖\n\nДоступные для вас нейросети: gpt-4o-mini ✨", reply_markup=kb.main)
         await state.set_state(Generate.selecting_model)  # Возвращаемся к выбору модели
     except Exception as err:
-        logger.error(f"Ошибка при смене модели gpt: {err}")
+        logger.error(f"Ошибка при смене нейросети: {err}")
         await bot.edit_message_text(
             chat_id=message.chat.id,
             message_id=message.message_id,
@@ -82,18 +94,18 @@ async def reset_context(message: Message, state: FSMContext, bot: Bot):
         
 
 @logger.catch
-@router.message(F.text == "Какую выбрать модель 🤔")
+@router.message(F.text == "Какую выбрать нейросеть 🤔")
 async def reset_context(message: Message, state: FSMContext, bot: Bot):
     await message.reply(cmd_message.about_message,
                         parse_mode=ParseMode.MARKDOWN)
 
 
 @logger.catch
-@router.message(F.text.in_(["❌Модель 4-o❌", "✅Модель 4-o-mini✅"]))
+@router.message(F.text.in_(["❎CHATGPT 4-o❎", "✅CHATGPT 4-o-mini✅"]))
 async def select_model(message: Message, state: FSMContext):
     model_mapping = {
-        "❌Модель 4-o❌": "gpt-4o",
-        "✅Модель 4-o-mini✅": "gpt-4o-mini"
+        "❎CHATGPT 4-o❎": "gpt-4o",
+        "✅CHATGPT 4-o-mini✅": "gpt-4o-mini"
     }
     model = model_mapping.get(message.text)
     
@@ -119,6 +131,10 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
 
     data = await state.get_data()
     model = data.get("model")
+
+    if model is None:
+        model = "gpt-4o-mini"
+
     user_input = message.text
 
     if model == "gpt-4o" and telegram_id != 857805093:
@@ -141,12 +157,11 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
     await state.set_state(Generate.waiting_for_response)
 
     # Отправляем сообщение с ожиданием и сохраняем его ID
-    waiting_message = await message.reply(f"✨ Модель: {model}.\nСреднее время ожидания: всего 5-19 секунд! ⏱🚀\nПожалуйста, подождите✨")
+    waiting_message = await message.reply(f"Модель: {model}.\nСреднее время ожидания: всего 5-19 секунд! ⏱🚀\n✨Пожалуйста, подождите✨")
 
     try:
         await bot.send_chat_action(message.chat.id, "typing")
-        text_from_gpt = await gpt(user_input, model, telegram_id)
-        response = escape_markdown(text_from_gpt)
+        response = escape_markdown(await gpt(user_input, model, telegram_id))
     except Exception as err:
         logger.error(f"Ошибка при генерации ответа gpt: {err}")
         await bot.edit_message_text(
@@ -210,11 +225,10 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
 
 @logger.catch
 @router.message(F.text)
-async def error_handling(message: Message, state: FSMContext):
+async def error_handling(message: Message, state: FSMContext, bot: Bot):
     current_state = await state.get_state()
     if current_state == Generate.waiting_for_response.state:
-        await message.reply("Пожалуйста, дождитесь завершения обработки предыдущего запроса.")
-    elif current_state == Generate.text_input.state:
-        await process_generation(message, state)
+        await message.reply("Пожалуйста, дождитесь завершения обработки предыдущего запроса. ⏳")
     else:
-        await message.answer("Выберите модель gpt", reply_markup=kb.main)
+        await message.reply("Модель не была выбрана, поэтому автоматически выбрана gpt-4o-mini.", reply_markup=await kb.change_model("gpt-4o-mini"))    
+        await process_generation(message, state, bot)
