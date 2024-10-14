@@ -1,6 +1,6 @@
 from aiogram import F, Router, Bot
 from aiogram.types import Message
-from aiogram.filters import CommandStart, Command
+from aiogram.filters import CommandStart
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.enums import ParseMode
@@ -79,6 +79,13 @@ async def reset_context(message: Message, state: FSMContext, bot: Bot):
             text=cmd_message.error_message,
             reply_markup=kb.report_an_error
             )
+        
+
+@logger.catch
+@router.message(F.text == "Какую выбрать модель 🤔")
+async def reset_context(message: Message, state: FSMContext, bot: Bot):
+    await message.reply(cmd_message.about_message,
+                        parse_mode=ParseMode.MARKDOWN)
 
 
 @logger.catch
