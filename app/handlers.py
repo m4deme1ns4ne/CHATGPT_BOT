@@ -4,6 +4,8 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.enums import ParseMode
 from loguru import logger
+from pydub import AudioSegment
+import os
 
 from app.generators import gpt
 from logger import file_logger
@@ -15,7 +17,8 @@ from .database.db import clear_message_history
 from app.call_count_gpt import count_calls
 from .database.redis import check_time_spacing_between_messages, del_redis_id
 from .calculate_message_length import calculate_message_length
-from .escape_markdown import escape_markdown
+from .transcribe_audio import transcribe_audio
+# from aiogram.utils.text_decorations import markdown_decoration
 
 
 router = Router()
@@ -53,7 +56,7 @@ async def command_pay(message: Message, state: FSMContext, bot: Bot):
 
 
 @logger.catch
-@router.message(F.text == "F.A.Q 🤔")
+@router.message(F.text == "F.A.Q ❓")
 async def comman_faq(message: Message, state: FSMContext, bot: Bot):
     await message.reply(cmd_message.faq,
                         parse_mode=ParseMode.MARKDOWN)
@@ -112,7 +115,7 @@ async def select_model(message: Message, state: FSMContext):
     await state.update_data(model=model)
     await state.set_state(Generate.text_input)
 
-    await message.answer(f"Вы выбрали {model}. Введите текст для генерации:", reply_markup=await kb.change_model(model))
+    await message.answer(f"Вы выбрали {model}\n\nВведите текст для генерации 📝, или отправьте голосое сообщение 🎤:", reply_markup=await kb.change_model(model))
 
 
 @logger.catch
@@ -135,7 +138,58 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
     if model is None:
         model = "gpt-4o-mini"
 
-    user_input = message.text
+    if message.voice:
+            try:
+                DOWNLOAD_PATH = './audio_files'
+
+                os.makedirs(DOWNLOAD_PATH, exist_ok=True)
+                """Обработчик голосовых сообщений."""
+                voice = message.voice
+
+                # Скачиваем голосовое сообщение
+                file = await bot.get_file(voice.file_id)
+                file_path = f"{DOWNLOAD_PATH}/{file.file_unique_id}.ogg"
+                await bot.download_file(file.file_path, file_path)
+
+                # Конвертируем OGG в WAV
+                audio = AudioSegment.from_ogg(file_path)
+                wav_path = file_path.replace('.ogg', '.wav')
+                audio.export(wav_path, format='wav')
+
+                # Транскрибируем аудиофайл
+                transcription = await transcribe_audio(wav_path)
+                await message.answer(f"Ваш текст: {transcription}")
+
+                user_input = transcription
+
+                # Удаляем временные файлы
+                os.remove(file_path)
+                os.remove(wav_path)
+            except Exception as err:
+                logger.error(f"Ошибка с конвертированием аудио в текст: {Exception}")
+                await bot.edit_message_text(
+                chat_id=waiting_message.chat.id,
+                message_id=waiting_message.message_id,
+                text=cmd_message.error_message,
+                reply_markup=kb.report_an_error
+                )
+            finally:
+                # Проверяем и удаляем оставшиеся файлы
+                for root, dirs, files in os.walk(DOWNLOAD_PATH):
+                    for file in files:
+                        if file.endswith('.ogg') or file.endswith('.wav'):
+                            file_to_remove = os.path.join(root, file)
+                            if os.path.exists(file_to_remove):
+                                try:
+                                    os.remove(file_to_remove)
+                                except Exception as file_err:
+                                    logger.error(f"Не удалось удалить файл {file_to_remove}: {file_err}")
+
+    else:
+        user_input = message.text
+
+    # Отправляем сообщение с ожиданием и сохраняем его ID
+    waiting_message = await message.reply(f"Модель: {model}\nСреднее время ожидания: всего 5-19 секунд! ⏱🚀\n✨Пожалуйста, подождите✨")
 
     if model == "gpt-4o" and telegram_id != 857805093:
         await message.reply(f"Модель gpt-4o в режиме альфа тестирования недоступна, доступна только модель gpt-4o-mini")
@@ -156,12 +210,10 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
 
     await state.set_state(Generate.waiting_for_response)
 
-    # Отправляем сообщение с ожиданием и сохраняем его ID
-    waiting_message = await message.reply(f"Модель: {model}.\nСреднее время ожидания: всего 5-19 секунд! ⏱🚀\n✨Пожалуйста, подождите✨")
-
     try:
         await bot.send_chat_action(message.chat.id, "typing")
-        response = escape_markdown(await gpt(user_input, model, telegram_id))
+        response = await gpt(user_input, model, telegram_id)
+        # response = markdown_decoration.quote(response)
     except Exception as err:
         logger.error(f"Ошибка при генерации ответа gpt: {err}")
         await bot.edit_message_text(
@@ -190,13 +242,13 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
                     message_id=waiting_message.message_id,
                     text=part,
                     reply_markup=kb.report_an_error,
-                    parse_mode=ParseMode.MARKDOWN_V2
+                    parse_mode=ParseMode.MARKDOWN
                 )
             else:
                 # Отправляем новое сообщение для каждой последующей части
                 await message.reply(part,
                                     reply_markup=kb.report_an_error,
-                                    parse_mode=ParseMode.MARKDOWN_V2
+                                    parse_mode=ParseMode.MARKDOWN
                                     )
 
             # Отправляем информацию о модели, если telegram_id соответствует
@@ -224,7 +276,7 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
 
 
 @logger.catch
-@router.message(F.text)
+@router.message(F.content_type.in_({'text', 'voice'}))
 async def error_handling(message: Message, state: FSMContext, bot: Bot):
     current_state = await state.get_state()
     if current_state == Generate.waiting_for_response.state:

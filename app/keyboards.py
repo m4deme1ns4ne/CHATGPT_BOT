@@ -3,7 +3,7 @@ from aiogram.types import (ReplyKeyboardMarkup, KeyboardButton,
 
 
 most_high_main = ReplyKeyboardMarkup(keyboard=[
-    [KeyboardButton(text="Подписка 🌟"), KeyboardButton(text="F.A.Q 🤔")],
+    [KeyboardButton(text="Подписка 🌟"), KeyboardButton(text="F.A.Q ❓")],
     [KeyboardButton(text="Выбрать нейросеть 🧠")]
     ],
     resize_keyboard=True

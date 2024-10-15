@@ -16,6 +16,8 @@ mysql-connector-python = "^9.0.0"
 aiomysql = "^0.2.0"
 aioredis = "^2.0.1"
 redis = "^5.1.0"
+pydub = "^0.25.1"
+speechrecognition = "^3.10.4"
 
 
 [build-system]
