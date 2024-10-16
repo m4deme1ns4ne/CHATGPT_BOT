@@ -18,6 +18,7 @@ aioredis = "^2.0.1"
 redis = "^5.1.0"
 pydub = "^0.25.1"
 speechrecognition = "^3.10.4"
+aiohttp = "^3.10.10"
 
 
 [build-system]

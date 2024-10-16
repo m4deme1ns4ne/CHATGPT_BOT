@@ -13,6 +13,6 @@ async def transcribe_audio(file_path: str) -> str:
         # Используем Google Speech Recognition API
         return recognizer.recognize_google(audio_data, language='ru-RU')
     except sr.UnknownValueError:
-        return "Не удалось распознать голос"
+        raise Exception("Не удалось распознать голос")
     except sr.RequestError as e:
-        return f"Ошибка сервиса распознавания речи: {e}"
+        raise Exception(f"Ошибка сервиса распознавания речи: {e}")

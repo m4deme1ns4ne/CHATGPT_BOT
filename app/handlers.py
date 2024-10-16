@@ -7,18 +7,19 @@ from loguru import logger
 from pydub import AudioSegment
 import os
 
+import app.keyboards as kb
+import app.database.redis as rd
 from app.generators import gpt
 from logger import file_logger
 from app import cmd_message
 from app.count_token import count_tokens
-import app.keyboards as kb
 from app.split_text import split_text
-from .database.db import clear_message_history
+from app.database.db import clear_message_history
 from app.call_count_gpt import count_calls
-from .database.redis import check_time_spacing_between_messages, del_redis_id
-from .calculate_message_length import calculate_message_length
-from .transcribe_audio import transcribe_audio
-# from aiogram.utils.text_decorations import markdown_decoration
+from app.calculate_message_length import calculate_message_length
+from app.transcribe_audio import transcribe_audio
+from app.correct_text import correct_text
+from aiogram.utils.text_decorations import markdown_decoration
 
 
 router = Router()
@@ -107,8 +108,8 @@ async def reset_context(message: Message, state: FSMContext, bot: Bot):
 @router.message(F.text.in_(["❎CHATGPT 4-o❎", "✅CHATGPT 4-o-mini✅"]))
 async def select_model(message: Message, state: FSMContext):
     model_mapping = {
-        "❎CHATGPT 4-o❎": "gpt-4o",
-        "✅CHATGPT 4-o-mini✅": "gpt-4o-mini"
+        "❎CHATGPT 4-o❎": "gpt-4o-2024-08-06",
+        "✅CHATGPT 4-o-mini✅": "gpt-4o-mini-2024-07-18"
     }
     model = model_mapping.get(message.text)
     
@@ -128,7 +129,7 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
     telegram_id = message.from_user.id
     
     # Проверяем время последнего сообщения
-    if not await check_time_spacing_between_messages(telegram_id):
+    if not await rd.check_time_spacing_between_messages(telegram_id):
         # Если интервал между сообщениями меньше 0.5 секунд, не обрабатываем
         return
 
@@ -158,9 +159,13 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
 
                 # Транскрибируем аудиофайл
                 transcription = await transcribe_audio(wav_path)
-                await message.answer(f"Ваш текст: {transcription}")
 
-                user_input = transcription
+                # Проверяем его на ошибки
+                transcription_w_err = await correct_text(transcription)
+
+                await message.answer(f"Ваш текст: {transcription_w_err}")
+
+                user_input = transcription_w_err
 
                 # Удаляем временные файлы
                 os.remove(file_path)
@@ -213,7 +218,6 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
     try:
         await bot.send_chat_action(message.chat.id, "typing")
         response = await gpt(user_input, model, telegram_id)
-        # response = markdown_decoration.quote(response)
     except Exception as err:
         logger.error(f"Ошибка при генерации ответа gpt: {err}")
         await bot.edit_message_text(
@@ -228,41 +232,57 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
     try:
         response_parts = split_text(response)
 
-        # Инициализация индекса
-        total_parts, index = len(response_parts), 0
-
-        # Цикл while для обработки всех частей списка
-        while index < total_parts:
-            part = response_parts[index]
-
-            if index == 0:
-                # Отправляем первое сообщение – обновляем старое
-                await bot.edit_message_text(
-                    chat_id=waiting_message.chat.id,
-                    message_id=waiting_message.message_id,
-                    text=part,
-                    reply_markup=kb.report_an_error,
-                    parse_mode=ParseMode.MARKDOWN
-                )
-            else:
-                # Отправляем новое сообщение для каждой последующей части
-                await message.reply(part,
-                                    reply_markup=kb.report_an_error,
-                                    parse_mode=ParseMode.MARKDOWN
-                                    )
+        # Цикл for для обработки всех частей списка
+        for index, part in enumerate(response_parts):
+            try:
+                if index == 0:
+                    # Отправляем первое сообщение – обновляем старое
+                    await bot.edit_message_text(
+                        chat_id=waiting_message.chat.id,
+                        message_id=waiting_message.message_id,
+                        text=part,
+                        reply_markup=kb.report_an_error,
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                else:
+                    # Отправляем новое сообщение для каждой последующей части
+                    await message.reply(
+                        part,
+                        reply_markup=kb.report_an_error,
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+            except Exception as err:
+                logger.error(f"Возникла ошибка с отправкой текста с разметкой markdown: {err}")
+                try:
+                    if index == 0:
+                        # Отправляем первое сообщение – обновляем старое
+                        await bot.edit_message_text(
+                            chat_id=waiting_message.chat.id,
+                            message_id=waiting_message.message_id,
+                            text=markdown_decoration.quote(part),
+                            reply_markup=kb.report_an_error,
+                            parse_mode=ParseMode.MARKDOWN_V2
+                        )
+                    else:
+                        # Отправляем новое сообщение для каждой последующей части
+                        await message.reply(
+                            text=markdown_decoration.quote(part),
+                            reply_markup=kb.report_an_error,
+                            parse_mode=ParseMode.MARKDOWN_V2
+                        )
+                except Exception as err:
+                    logger.error(f"Возникла ошибка с отправкой текста без разметки markdown: {err}")
+                    raise Exception
 
             # Отправляем информацию о модели, если telegram_id соответствует
             if telegram_id == 857805093:
                 await message.answer(
                     f"Model: {model}\nNumber of tokens per input: {count_tokens(user_input)}\nNumber of tokens per output: {count_tokens(part)}",
-                    )
-
-            # Увеличиваем индекс для перехода к следующей части
-            index += 1
+                )
         
         logger.info(f"Ответ gpt получен и отправлен пользователю: {telegram_id}")
         await state.set_state(Generate.text_input)
-        await del_redis_id(telegram_id)
+        await rd.del_redis_id(telegram_id)
     except Exception as err:
         logger.error(f"Ошибка при отправке сообщения: {err}")
         await bot.edit_message_text(
