@@ -140,7 +140,7 @@ class GPTUsageHandler:
                                                  model=self.free_model, 
                                                  count=call_count, 
                                                  last_reset=last_reset)
-            return (False,)
+            return (True,)
 
 
     async def reset_call_count(self, reset_interval: datetime, count: int):
