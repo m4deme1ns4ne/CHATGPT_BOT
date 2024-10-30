@@ -177,7 +177,7 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
             f"Вы сможете использовать gpt снова через {int(hours)} часов, {int(minutes)} минут и {int(seconds)} секунд."
         )
         await message.answer_animation(
-            animation='CgACAgIAAxkBAAIJ4GcK5kGcn4RhiVGJYdnQwMuITvSBAAKXUgAC0zoIS7nqeg0TrWDKNgQ'
+            animation='CgACAgIAAxkDAAITi2ciP7D3DJm-1upljmyqvukj8cc4AAKXUgAC0zoIS7nqeg0TrWDKNgQ'
         )
         return
     elif model == "gpt-4o" and not success:
@@ -188,7 +188,7 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
             parse_mode=ParseMode.MARKDOWN
         )
         await message.answer_animation(
-            animation='CgACAgIAAxkBAAIJ4GcK5kGcn4RhiVGJYdnQwMuITvSBAAKXUgAC0zoIS7nqeg0TrWDKNgQ'
+            animation='CgACAgIAAxkDAAITi2ciP7D3DJm-1upljmyqvukj8cc4AAKXUgAC0zoIS7nqeg0TrWDKNgQ'
         )
         return
 
