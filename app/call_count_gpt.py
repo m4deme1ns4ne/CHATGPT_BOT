@@ -108,6 +108,7 @@ class GPTUsageHandler:
                                                  count=call_count,
                                                  last_reset=self.current_time)
             asyncio.create_task(self.reset_call_count(reset_interval, count))
+            return (True,)
         else:
             # Получаем данные пользователя из базы данных
             call_count, last_reset = await self.db.get_users_call_data(self.telegram_id, self.free_model)
