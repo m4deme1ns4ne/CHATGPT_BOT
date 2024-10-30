@@ -1,25 +1,24 @@
 from aiogram import F, Router, Bot
-from aiogram.types import Message
+from aiogram.types import Message, LabeledPrice, PreCheckoutQuery
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.enums import ParseMode
+from aiogram.utils.text_decorations import markdown_decoration
 from loguru import logger
-from pydub import AudioSegment
 import os
 
-import app.keyboards as kb
-import app.database.redis as rd
-from app.generators import gpt
 from logger import file_logger
 from app import cmd_message
-from app.count_token import count_tokens
-from app.split_text import split_text
-from app.database.db import clear_message_history
-from app.call_count_gpt import count_calls
-from app.calculate_message_length import calculate_message_length
-from app.transcribe_audio import transcribe_audio
-from app.correct_text import correct_text
-from aiogram.utils.text_decorations import markdown_decoration
+import app.keyboards as kb
+from app.database.redis import DatabaseRedis
+from app.generators import GPTResponse
+from app.database.db import DATABASE
+from app.call_count_gpt import GPTUsageHandler
+from app.etc.count_token import count_tokens
+from app.etc.split_text import split_text
+from app.etc.calculate_message_length import calculate_message_length
+from app.etc.transcribe_audio import transcribe_audio
+from app.etc.correct_text import correct_text
 
 
 router = Router()
@@ -48,15 +47,37 @@ async def cmd_start(message: Message, state: FSMContext, bot: Bot):
             text=cmd_message.error_message,
             reply_markup=kb.report_an_error
             )
+        return
 
 
-@logger.catch
-@router.message(F.text == "Подписка 🌟")
+@router.message(F.text == "Купить запросы 🌟")
 async def command_pay(message: Message, state: FSMContext, bot: Bot):
-    await message.reply("Здесь будет информация про подписку...", reply_markup=kb.back)
+    CURRENCY = "XTR"
+    await message.answer_invoice(title="Купить запросы к GPT-4o 🌟",
+                                 description=cmd_message.prices,
+                                 payload="private",
+                                 currency=CURRENCY,
+                                 prices=[LabeledPrice(label=CURRENCY, amount=100)],
+                                 reply_markup=await kb.payment_keyboard())
 
 
-@logger.catch
+@router.pre_checkout_query()
+async def pre_checkout_query(query: PreCheckoutQuery) -> None:
+    await query.answer(True)
+
+
+@router.message(F.successful_payment)
+async def successful_payment(message: Message) -> None:
+    db = DATABASE()
+    await message.answer("Оплата успешно проведена 🎉💳\nТеперь вам доступно *100 запросов* CHAT GPT 4o 🚀",
+                         parse_mode=ParseMode.MARKDOWN)
+    await db.increases_count_calls(
+        telegram_id=message.from_user.id,
+        model="gpt-4o",
+        count=100
+    )
+
+
 @router.message(F.text == "F.A.Q ❓")
 async def comman_faq(message: Message, state: FSMContext, bot: Bot):
     await message.reply(cmd_message.faq,
@@ -77,6 +98,7 @@ async def change_gpt_model(message: Message, state: FSMContext, bot: Bot):
             text=cmd_message.error_message,
             reply_markup=kb.report_an_error
             )
+        return
 
 
 @logger.catch
@@ -84,8 +106,9 @@ async def change_gpt_model(message: Message, state: FSMContext, bot: Bot):
 async def reset_context(message: Message, state: FSMContext, bot: Bot):
     telegram_id = message.from_user.id
     try:
+        db = DATABASE()
         # Очищаем контекст сообщений в базе данных
-        await clear_message_history(telegram_id)
+        await db.clear_message_history(telegram_id)
         await message.reply(cmd_message.reset_context_message)
     except Exception as err:
         logger.error(f"Ошибка при сбросе контекста: {err}")
@@ -95,6 +118,7 @@ async def reset_context(message: Message, state: FSMContext, bot: Bot):
             text=cmd_message.error_message,
             reply_markup=kb.report_an_error
             )
+        return
         
 
 @logger.catch
@@ -105,11 +129,11 @@ async def reset_context(message: Message, state: FSMContext, bot: Bot):
 
 
 @logger.catch
-@router.message(F.text.in_(["❎CHATGPT 4-o❎", "✅CHATGPT 4-o-mini✅"]))
+@router.message(F.text.in_(["CHATGPT 4-o", "CHATGPT 4-o-mini"]))
 async def select_model(message: Message, state: FSMContext):
     model_mapping = {
-        "❎CHATGPT 4-o❎": "gpt-4o-2024-08-06",
-        "✅CHATGPT 4-o-mini✅": "gpt-4o-mini-2024-07-18"
+        "CHATGPT 4-o": "gpt-4o",
+        "CHATGPT 4-o-mini": "gpt-4o-mini"
     }
     model = model_mapping.get(message.text)
     
@@ -121,13 +145,14 @@ async def select_model(message: Message, state: FSMContext):
 
 @logger.catch
 @router.message(Generate.text_input)
-@count_calls()
 async def process_generation(message: Message, state: FSMContext, bot: Bot):
 
     await bot.send_chat_action(message.chat.id, "typing")
 
     telegram_id = message.from_user.id
-    
+
+    rd = DatabaseRedis()
+
     # Проверяем время последнего сообщения
     if not await rd.check_time_spacing_between_messages(telegram_id):
         # Если интервал между сообщениями меньше 0.5 секунд, не обрабатываем
@@ -138,6 +163,34 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
 
     if model is None:
         model = "gpt-4o-mini"
+
+    usage = GPTUsageHandler(telegram_id)
+
+    success_and_data = await usage.process(model)
+    success = success_and_data[0]
+
+    if model == "gpt-4o-mini" and not success:
+        hours, minutes, seconds, count = success_and_data[1]
+        await message.answer(
+            f"ПРЕВЫШЕН ЛИМИТ ЗАПРОСОВ!\n\n"
+            f"Вы можете использовать до {count} запросов gpt-4o-mini в сутки.\n\n"
+            f"Вы сможете использовать gpt снова через {int(hours)} часов, {int(minutes)} минут и {int(seconds)} секунд."
+        )
+        await message.answer_animation(
+            animation='CgACAgIAAxkBAAIJ4GcK5kGcn4RhiVGJYdnQwMuITvSBAAKXUgAC0zoIS7nqeg0TrWDKNgQ'
+        )
+        return
+    elif model == "gpt-4o" and not success:
+        await message.answer(
+            f"*ЗАКОНЧИЛИСЬ ЗАПРОСЫ модели {model}*\n\n"
+            f"У вас закончились запросы нейросети {model}.\n" 
+            "Вы можете преобрести ещё запросов через кнопку *Купить запросы* 🌟 в главном меню.",
+            parse_mode=ParseMode.MARKDOWN
+        )
+        await message.answer_animation(
+            animation='CgACAgIAAxkBAAIJ4GcK5kGcn4RhiVGJYdnQwMuITvSBAAKXUgAC0zoIS7nqeg0TrWDKNgQ'
+        )
+        return
 
     if message.voice:
             try:
@@ -152,32 +205,20 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
                 file_path = f"{DOWNLOAD_PATH}/{file.file_unique_id}.ogg"
                 await bot.download_file(file.file_path, file_path)
 
-                # Конвертируем OGG в WAV
-                audio = AudioSegment.from_ogg(file_path)
-                wav_path = file_path.replace('.ogg', '.wav')
-                audio.export(wav_path, format='wav')
-
                 # Транскрибируем аудиофайл
-                transcription = await transcribe_audio(wav_path)
+                transcription = await transcribe_audio(file_path)
 
-                # Проверяем его на ошибки
+                # Проверяем его на ошибки и исправляем их
                 transcription_w_err = await correct_text(transcription)
-
-                await message.answer(f"Ваш текст: {transcription_w_err}")
-
                 user_input = transcription_w_err
 
-                # Удаляем временные файлы
-                os.remove(file_path)
-                os.remove(wav_path)
             except Exception as err:
                 logger.error(f"Ошибка с конвертированием аудио в текст: {Exception}")
-                await bot.edit_message_text(
-                chat_id=waiting_message.chat.id,
-                message_id=waiting_message.message_id,
-                text=cmd_message.error_message,
+                await message.reply(
+                text=cmd_message.error_message_voice,
                 reply_markup=kb.report_an_error
                 )
+                return
             finally:
                 # Проверяем и удаляем оставшиеся файлы
                 for root, dirs, files in os.walk(DOWNLOAD_PATH):
@@ -195,10 +236,6 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
 
     # Отправляем сообщение с ожиданием и сохраняем его ID
     waiting_message = await message.reply(f"Модель: {model}\nСреднее время ожидания: всего 5-19 секунд! ⏱🚀\n✨Пожалуйста, подождите✨")
-
-    if model == "gpt-4o" and telegram_id != 857805093:
-        await message.reply(f"Модель gpt-4o в режиме альфа тестирования недоступна, доступна только модель gpt-4o-mini")
-        return
     
     lenght_message_user = calculate_message_length(user_input)
 
@@ -217,7 +254,11 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
 
     try:
         await bot.send_chat_action(message.chat.id, "typing")
-        response = await gpt(user_input, model, telegram_id)
+        ai = GPTResponse()
+        response = await ai.gpt_answer(question=user_input, 
+                                       model_gpt=model, 
+                                       telegram_id=telegram_id)
+        
     except Exception as err:
         logger.error(f"Ошибка при генерации ответа gpt: {err}")
         await bot.edit_message_text(
@@ -253,6 +294,7 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
                     )
             except Exception as err:
                 logger.error(f"Возникла ошибка с отправкой текста с разметкой markdown: {err}")
+                await message.reply("Не удалось отправить текст в разметке markdown :(")
                 try:
                     if index == 0:
                         # Отправляем первое сообщение – обновляем старое
@@ -272,9 +314,15 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
                         )
                 except Exception as err:
                     logger.error(f"Возникла ошибка с отправкой текста без разметки markdown: {err}")
-                    raise Exception
+                    await bot.edit_message_text(
+                        chat_id=waiting_message.chat.id,
+                        message_id=waiting_message.message_id,
+                        text=cmd_message.error_message,
+                        reply_markup=kb.report_an_error
+                        )
+                    return
 
-            # Отправляем информацию о модели, если telegram_id соответствует
+            # Отправляем информацию о модели, если telegram_id соответствует 857805093
             if telegram_id == 857805093:
                 await message.answer(
                     f"Model: {model}\nNumber of tokens per input: {count_tokens(user_input)}\nNumber of tokens per output: {count_tokens(part)}",

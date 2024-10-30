@@ -1,9 +1,11 @@
 from aiogram.types import (ReplyKeyboardMarkup, KeyboardButton,
                            InlineKeyboardMarkup, InlineKeyboardButton)
 
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+
 
 most_high_main = ReplyKeyboardMarkup(keyboard=[
-    [KeyboardButton(text="Подписка 🌟"), KeyboardButton(text="F.A.Q ❓")],
+    [KeyboardButton(text="Купить запросы 🌟"), KeyboardButton(text="F.A.Q ❓")],
     [KeyboardButton(text="Выбрать нейросеть 🧠")]
     ],
     resize_keyboard=True
@@ -17,7 +19,7 @@ back = ReplyKeyboardMarkup(keyboard=[
 
 # Главное меню с выбором модели
 main = ReplyKeyboardMarkup(keyboard=[
-    [KeyboardButton(text="❎CHATGPT 4-o❎"), KeyboardButton(text="✅CHATGPT 4-o-mini✅")],
+    [KeyboardButton(text="CHATGPT 4-o"), KeyboardButton(text="CHATGPT 4-o-mini")],
     [KeyboardButton(text="Назад ↩️"), KeyboardButton(text="Какую выбрать нейросеть 🤔")]
 ],
     resize_keyboard=True,
@@ -38,3 +40,8 @@ report_an_error = InlineKeyboardMarkup(
         [InlineKeyboardButton(text="Сообщить об ошибке", url="https://t.me/+kHxUGI-eVmhlOTY6")]
     ]
 )
+
+async def payment_keyboard():
+    builder = InlineKeyboardBuilder()
+    builder.button(text=f"Купить 100 запросов CHAT GPT 4o", pay=True)
+    return builder.as_markup()

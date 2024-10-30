@@ -1,82 +1,160 @@
 import asyncio
 from datetime import datetime
-from functools import wraps
-import app.database.db as db
+from app.database.db import DATABASE
 from loguru import logger
 
 from logger import file_logger
 
 
-# Декоратор для подсчета вызовов функции с использованием MySQL
-@logger.catch
-def count_calls(limit=10, reset_interval=86400):
-    def decorator(func):
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            file_logger()
-            try:
-                # Получаем telegram_id пользователя
-                message = args[0]
-                telegram_id = message.from_user.id
+file_logger()
 
-                if telegram_id == 857805093:
-                    await db.reset_users_call_data(857805093)
-
-                current_time = datetime.now()  # Используем datetime для записи времени
-
-                # Получаем данные пользователя из базы данных
-                result = await db.get_users_call_data(telegram_id)
-
-                if result is None:
-                    # Если данных нет, создаем запись для пользователя с текущим временем
-                    await db.update_users_call_data(telegram_id, 1, current_time)
-                    asyncio.create_task(reset_call_count(telegram_id, reset_interval))
-                else:
-                    call_count, last_reset = result
-
-                    # Преобразуем last_reset в тип datetime, если необходимо
-                    if isinstance(last_reset, float):
-                        last_reset = datetime.fromtimestamp(last_reset)
-
-                    time_since_reset = (current_time - last_reset).total_seconds()
-
-                    # Если прошло достаточно времени, сбрасываем счетчик
-                    if time_since_reset >= reset_interval:
-                        call_count = 0
-                        last_reset = current_time
-
-                    # Увеличиваем счетчик вызовов
-                    call_count += 1
-                    await db.increase_call_count(telegram_id)
-
-                    # Проверяем, превышен ли лимит вызовов
-                    if call_count > limit:
-                        time_until_reset = reset_interval - time_since_reset
-                        hours, remainder = divmod(time_until_reset, 3600)
-                        minutes, seconds = divmod(remainder, 60)
-
-                        await message.answer(
-                            f"ПРЕВЫШЕН ЛИМИТ ЗАПРОСОВ!\n\n"
-                            f"Вы можете использовать до {limit} запросов gpt-4o-mini в сутки.\n\n"
-                            f"Вы сможете использовать gpt снова через {int(hours)} часов, {int(minutes)} минут и {int(seconds)} секунд."
-                        )
-                        await message.answer_animation(
-                            animation='CgACAgIAAxkBAAIJ4GcK5kGcn4RhiVGJYdnQwMuITvSBAAKXUgAC0zoIS7nqeg0TrWDKNgQ'
-                        )
-                        return
-
-                    # Обновляем данные пользователя в базе
-                    await db.update_users_call_data(telegram_id, call_count, last_reset)
-            except Exception as err:
-                logger.error(f"Ошибка с подсчётом количества вызовов: {err}")
-            # Вызов исходной функции
-            return await func(*args, **kwargs)
-        return wrapper
-    return decorator
+class GPTUsageHandler:
+    """
+    Класс для обработки использования модели GPT.
+    """
+    def __init__(self, telegram_id: int) -> None:
+        self.telegram_id = telegram_id
+        self.db = DATABASE()
+        self.current_time = datetime.now()
+        self.free_model = "gpt-4o-mini"
+        self.gpt_4o = "gpt-4o"
 
 
-# Асинхронная функция для сброса счетчика вызовов
-async def reset_call_count(telegram_id, reset_interval):
-    await asyncio.sleep(reset_interval)  # Ждем указанное время (в секундах)
-    # Сбрасываем счетчик вызовов для пользователя
-    await db.reset_users_call_data(telegram_id)
+    @logger.catch
+    async def process(self, model: str) -> tuple[bool, tuple]:
+        """
+        Обработка запроса к модели.
+
+        :param model: Название модели для использования.
+                      Может быть "gpt-4o" или другая модель.
+
+        :return: Результат обработки запроса. Возвращает кортеж,
+                 где первый элемент - успешность операции (True/False),
+                 второй элемент - данные о времени и кол-ве вызово в виде кортежа.
+                 Если операция неуспешна, возвращается оставшееся время до сброса лимита.
+                 Если успешна, возвращаются None значения.
+        """
+        if model == "gpt-4o":
+            result = await self.count_gpt_4o()
+        else:
+            result = await self.count_gpt_4o_mini_free()
+        return result
+    
+
+    @logger.catch
+    async def count_gpt_4o(self) -> tuple[bool]:
+        """
+        Обработка вызова платной версии модели gpt-4o.
+
+        :return: Результат обработки запроса. Возвращает кортеж,
+                      где первый элемент - успешность операции (True/False),
+                      второй элемент - данные о времени и кол-ве вызово в виде кортежа.
+                      Если операция неуспешна, возвращается оставшееся время до сброса лимита.
+                      Если успешна, возвращаются None значения.
+        """
+        if not await self.db.user_exists(self.telegram_id):
+            await self.db.add_user(self.telegram_id)
+            # Если данных нет, создаем запись для пользователя с текущим временем
+            await self.db.update_users_call_data(telegram_id=self.telegram_id, 
+                                                 model=self.gpt_4o, 
+                                                 count=0,
+                                                 last_reset=self.current_time)
+            return (False,)
+
+        else:
+            call_count, last_reset = await self.db.get_users_call_data(self.telegram_id, self.gpt_4o)
+
+            if call_count > 0:
+                # Преобразуем last_reset в тип datetime, если необходимо
+                if isinstance(last_reset, float):
+                    last_reset = datetime.fromtimestamp(last_reset)
+
+                await self.db.decreases_count_calls(self.telegram_id, self.gpt_4o)
+                call_count -= 1
+
+                await self.db.update_users_call_data(telegram_id=self.telegram_id, 
+                                                    model=self.gpt_4o, 
+                                                    count=call_count,
+                                                    last_reset=last_reset)
+                return (True,)
+            
+            else:
+                return (False,)
+
+
+    @logger.catch
+    async def count_gpt_4o_mini_free(self, count: int=10, reset_interval: datetime=86400) -> tuple[bool, tuple]:
+        """
+        Обработка вызова бесплатной версии модели gpt-4o-mini 
+        с учетом ограничений по количеству запросов.
+
+        :param count: Максимальное количество разрешенных вызовов за интервал времени.
+                      По умолчанию равно 10.   
+        :param reset_interval: Интервал времени (в секундах), после которого счетчик обнуляется. 
+                      По умолчанию равно 86400 (24 часа)
+        :return: Результат обработки запроса. Возвращает кортеж,
+                      где первый элемент - успешность операции (True/False),
+                      второй элемент - данные о времени и кол-ве вызово в виде кортежа.
+                      Если операция неуспешна, возвращается оставшееся время до сброса лимита.
+                      Если успешна, возвращаются None значения.
+        """
+        if not await self.db.user_exists(self.telegram_id):
+            call_count = count - 1
+            # Добавляем пользователя в базу данных
+            await self.db.add_user(self.telegram_id)
+            # Если данных нет, создаем запись для пользователя с текущим временем
+            await self.db.update_users_call_data(telegram_id=self.telegram_id, 
+                                                 model=self.free_model, 
+                                                 count=call_count,
+                                                 last_reset=self.current_time)
+            asyncio.create_task(self.reset_call_count(reset_interval, count))
+        else:
+            # Получаем данные пользователя из базы данных
+            call_count, last_reset = await self.db.get_users_call_data(self.telegram_id, self.free_model)
+
+            # Преобразуем last_reset в тип datetime, если необходимо
+            if isinstance(last_reset, float):
+                last_reset = datetime.fromtimestamp(last_reset)
+
+            time_since_reset = (self.current_time - last_reset).total_seconds()
+
+            # Если прошло достаточно времени, сбрасываем счетчик
+            if time_since_reset >= reset_interval:
+                call_count = count
+                last_reset = self.current_time
+
+            # Проверяем, превышен ли лимит вызовов
+            if call_count <= 0:
+                time_until_reset = reset_interval - time_since_reset
+                hours, remainder = divmod(time_until_reset, 3600)
+                minutes, seconds = divmod(remainder, 60)
+
+                return (False, (hours, minutes, seconds, count))
+
+            # Уменьшаем счетчик вызовов
+            await self.db.decreases_count_calls(self.telegram_id, self.free_model)
+            call_count -= 1
+
+            # Обновляем данные пользователя в базе
+            await self.db.update_users_call_data(telegram_id=self.telegram_id, 
+                                                 model=self.free_model, 
+                                                 count=call_count, 
+                                                 last_reset=last_reset)
+            return (False,)
+
+
+    async def reset_call_count(self, reset_interval: datetime, count: int):
+        """
+        Cброс счетчика вызовов в бесплатной модели.
+
+        :param reset_interval: Интервал времени (в секундах), 
+                               через который происходит сброс счетчика.
+        :param count: Количество вызовов, на которое будет установлен счетчик после сброса.
+        """
+        
+        await asyncio.sleep(reset_interval)  # Ждем указанное время (в секундах)
+        
+        # Сбрасываем счетчик вызовов для пользователя
+        await self.db.reset_users_call_data(telegram_id=self.telegram_id,
+                                            count=count,
+                                            model=self.free_model)
