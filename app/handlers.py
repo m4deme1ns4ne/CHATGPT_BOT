@@ -176,9 +176,6 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
             f"Вы можете использовать до {count} запросов gpt-4o-mini в сутки.\n\n"
             f"Вы сможете использовать gpt снова через {int(hours)} часов, {int(minutes)} минут и {int(seconds)} секунд."
         )
-        await message.answer_animation(
-            animation='CgACAgIAAxkDAAITi2ciP7D3DJm-1upljmyqvukj8cc4AAKXUgAC0zoIS7nqeg0TrWDKNgQ'
-        )
         return
     elif model == "gpt-4o" and not success:
         await message.answer(
@@ -186,9 +183,6 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
             f"У вас закончились запросы нейросети {model}.\n" 
             "Вы можете преобрести ещё запросов через кнопку *Купить запросы* 🌟 в главном меню.",
             parse_mode=ParseMode.MARKDOWN
-        )
-        await message.answer_animation(
-            animation='CgACAgIAAxkDAAITi2ciP7D3DJm-1upljmyqvukj8cc4AAKXUgAC0zoIS7nqeg0TrWDKNgQ'
         )
         return
 
