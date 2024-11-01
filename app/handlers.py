@@ -16,7 +16,6 @@ from app.database.db import DATABASE
 from app.call_count_gpt import GPTUsageHandler
 from app.etc.count_token import count_tokens
 from app.etc.split_text import split_text
-from app.etc.calculate_message_length import calculate_message_length
 from app.etc.transcribe_audio import transcribe_audio
 from app.etc.correct_text import correct_text
 
@@ -68,6 +67,11 @@ async def pre_checkout_query(query: PreCheckoutQuery) -> None:
 
 @router.message(F.successful_payment)
 async def successful_payment(message: Message) -> None:
+    """При успешной оплате, показывает сообщение и добавляет запросы
+
+    Args:
+        message (Message): Сообщение пользователя
+    """
     db = DATABASE()
     await message.answer("Оплата успешно проведена 🎉💳\nТеперь вам доступно *100 запросов* CHAT GPT 4o 🚀",
                          parse_mode=ParseMode.MARKDOWN)
@@ -87,8 +91,26 @@ async def comman_faq(message: Message, state: FSMContext, bot: Bot):
 @logger.catch
 @router.message(F.text.in_(["Поменять нейросеть ↩️", "Выбрать нейросеть 🧠"]))
 async def change_gpt_model(message: Message, state: FSMContext, bot: Bot):
+    """Отправляет сообщение с кол-вом запросов
+
+    Args:
+        message (Message): Сообщение пользователя
+        state (FSMContext): Состояние диалога
+        bot (Bot): Бот
+    """
     try:
-        await message.answer("Выберите нейросеть 🤖\n\nДоступные для вас нейросети: gpt-4o-mini ✨", reply_markup=kb.main)
+
+        telegram_id = message.from_user.id
+        db = DATABASE()
+
+        count_gpt_4o_mini = await db.get_users_call_data(telegram_id=telegram_id, 
+                                                   model="gpt-4o-mini")
+        count_gpt_4o = await db.get_users_call_data(telegram_id=telegram_id, 
+                                              model="gpt-4o")
+
+        await message.answer(f"Выберите нейросеть 🤖\n\nОставшиеся кол-во запросов:\n\n*CHAT GPT 4o mini: {count_gpt_4o_mini[0]}*\n\n*CHAT GPT 4o: {count_gpt_4o[0]}*", 
+                             reply_markup=kb.main,
+                             parse_mode=ParseMode.MARKDOWN)
         await state.set_state(Generate.selecting_model)  # Возвращаемся к выбору модели
     except Exception as err:
         logger.error(f"Ошибка при смене нейросети: {err}")
@@ -104,6 +126,13 @@ async def change_gpt_model(message: Message, state: FSMContext, bot: Bot):
 @logger.catch
 @router.message(F.text == "Сброс контекста 🔄")
 async def reset_context(message: Message, state: FSMContext, bot: Bot):
+    """ Сбрасывает контекст диалога
+
+    Args:
+        message (Message): Сообщение пользователя
+        state (FSMContext): Состояние диалога
+        bot (Bot): Бот
+    """
     telegram_id = message.from_user.id
     try:
         db = DATABASE()
@@ -172,9 +201,10 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
     if model == "gpt-4o-mini" and not success:
         hours, minutes, seconds, count = success_and_data[1]
         await message.answer(
-            f"ПРЕВЫШЕН ЛИМИТ ЗАПРОСОВ!\n\n"
+            f"*ПРЕВЫШЕН ЛИМИТ ЗАПРОСОВ!*\n\n"
             f"Вы можете использовать до {count} запросов gpt-4o-mini в сутки.\n\n"
-            f"Вы сможете использовать gpt снова через {int(hours)} часов, {int(minutes)} минут и {int(seconds)} секунд."
+            f"Вы сможете использовать gpt снова через {int(hours)} часов, {int(minutes)} минут и {int(seconds)} секунд.",
+            parse_mode=ParseMode.MARKDOWN
         )
         return
     elif model == "gpt-4o" and not success:
@@ -230,13 +260,6 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
 
     # Отправляем сообщение с ожиданием и сохраняем его ID
     waiting_message = await message.reply(f"Модель: {model}\nСреднее время ожидания: всего 5-19 секунд! ⏱🚀\n✨Пожалуйста, подождите✨")
-    
-    lenght_message_user = calculate_message_length(user_input)
-
-    if lenght_message_user >= 4096:
-        await message.answer(f"Сообщение слишком длинное. Пожалуйста, сократите его длину до 4096 символов.\n\nДлина отправленного сообщения: {lenght_message_user}")
-        await state.set_state(Generate.text_input)
-        return
 
     current_state = await state.get_state()
 
