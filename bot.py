@@ -5,7 +5,9 @@ from loguru import logger
 import os
 
 from logger import file_logger
-from app.handlers import router
+from app.handlers import (change_model, static_messages, payments, 
+                          process_generation, reset_context, select_model)
+
 
 
 @logger.catch
@@ -17,7 +19,9 @@ async def main() -> None:
     bot = Bot(token=os.getenv("BOT_TOKEN"))
     dp = Dispatcher()
 
-    dp.include_router(router)
+    dp.include_routers(change_model.router, reset_context.router, 
+                       static_messages.router, payments.router, 
+                       select_model.router, process_generation.router)
     await dp.start_polling(bot)
 
 

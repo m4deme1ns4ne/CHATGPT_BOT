@@ -41,7 +41,25 @@ report_an_error = InlineKeyboardMarkup(
     ]
 )
 
-async def payment_keyboard():
+assortiment_model = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text="CHAT GPT 4o", callback_data="gpt-4o")]
+    ]
+)
+
+async def assortiment_count(model: str):
+    assortiment_count = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="100 запросов", callback_data=f"{model}_100")],
+            [InlineKeyboardButton(text="300 запросов", callback_data=f"{model}_300")],
+            [InlineKeyboardButton(text="500 запросов", callback_data=f"{model}_500")],
+            [InlineKeyboardButton(text="1000 запросов", callback_data=f"{model}_1000")]
+        ]
+    )
+    return assortiment_count
+
+
+async def payment_keyboard(model: str, count: int):
     builder = InlineKeyboardBuilder()
-    builder.button(text=f"Купить 100 запросов CHAT GPT 4o", pay=True)
+    builder.button(text=f"Купить {count} запросов {model}", pay=True)
     return builder.as_markup()

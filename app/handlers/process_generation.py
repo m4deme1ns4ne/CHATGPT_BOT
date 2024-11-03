@@ -1,5 +1,5 @@
-from aiogram import F, Router, Bot
-from aiogram.types import Message, LabeledPrice, PreCheckoutQuery
+from aiogram import Router, Bot, F
+from aiogram.types import Message
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.enums import ParseMode
@@ -12,7 +12,6 @@ from app import cmd_message
 import app.keyboards as kb
 from app.database.redis import DatabaseRedis
 from app.generators import GPTResponse
-from app.database.db import DATABASE
 from app.call_count_gpt import GPTUsageHandler
 from app.etc.count_token import count_tokens
 from app.etc.split_text import split_text
@@ -29,147 +28,6 @@ class Generate(StatesGroup):
     selecting_model = State()           # Состояние выбора модели
     text_input = State()                # Состояние ожидания текста от пользователя
     waiting_for_response = State()      # Ожидание ответа gpt
-
-
-@logger.catch
-@router.message(F.text.in_(["Вернуться в главное меню ↩️", "/start", "Назад ↩️"]))
-async def cmd_start(message: Message, state: FSMContext, bot: Bot):
-    try:
-        await message.answer(cmd_message.start_message, reply_markup=kb.most_high_main)
-        await state.clear()  # Очистка состояния при старте
-        await state.set_state(Generate.selecting_model)  # Устанавливаем состояние выбора модели
-    except Exception as err:
-        logger.error(f"Ошибка при вводе команды /start: {err}")
-        await bot.edit_message_text(
-            chat_id=message.chat.id,
-            message_id=message.message_id,
-            text=cmd_message.error_message,
-            reply_markup=kb.report_an_error
-            )
-        return
-
-
-@router.message(F.text == "Купить запросы 🌟")
-async def command_pay(message: Message, state: FSMContext, bot: Bot):
-    CURRENCY = "XTR"
-    await message.answer_invoice(title="Купить запросы к GPT-4o 🌟",
-                                 description=cmd_message.prices,
-                                 payload="private",
-                                 currency=CURRENCY,
-                                 prices=[LabeledPrice(label=CURRENCY, amount=100)],
-                                 reply_markup=await kb.payment_keyboard())
-
-
-@router.pre_checkout_query()
-async def pre_checkout_query(query: PreCheckoutQuery) -> None:
-    await query.answer(True)
-
-
-@router.message(F.successful_payment)
-async def successful_payment(message: Message) -> None:
-    """При успешной оплате, показывает сообщение и добавляет запросы
-
-    Args:
-        message (Message): Сообщение пользователя
-    """
-    db = DATABASE()
-    await message.answer("Оплата успешно проведена 🎉💳\nТеперь вам доступно *100 запросов* CHAT GPT 4o 🚀",
-                         parse_mode=ParseMode.MARKDOWN)
-    await db.increases_count_calls(
-        telegram_id=message.from_user.id,
-        model="gpt-4o",
-        count=100
-    )
-
-
-@router.message(F.text == "F.A.Q ❓")
-async def comman_faq(message: Message, state: FSMContext, bot: Bot):
-    await message.reply(cmd_message.faq,
-                        parse_mode=ParseMode.MARKDOWN)
-
-
-@logger.catch
-@router.message(F.text.in_(["Поменять нейросеть ↩️", "Выбрать нейросеть 🧠"]))
-async def change_gpt_model(message: Message, state: FSMContext, bot: Bot):
-    """Отправляет сообщение с кол-вом запросов
-
-    Args:
-        message (Message): Сообщение пользователя
-        state (FSMContext): Состояние диалога
-        bot (Bot): Бот
-    """
-    try:
-
-        telegram_id = message.from_user.id
-        db = DATABASE()
-
-        count_gpt_4o_mini = await db.get_users_call_data(telegram_id=telegram_id, 
-                                                   model="gpt-4o-mini")
-        count_gpt_4o = await db.get_users_call_data(telegram_id=telegram_id, 
-                                              model="gpt-4o")
-
-        await message.answer(f"Выберите нейросеть 🤖\n\nОставшиеся кол-во запросов:\n\n*CHAT GPT 4o mini: {count_gpt_4o_mini[0]}*\n\n*CHAT GPT 4o: {count_gpt_4o[0]}*", 
-                             reply_markup=kb.main,
-                             parse_mode=ParseMode.MARKDOWN)
-        await state.set_state(Generate.selecting_model)  # Возвращаемся к выбору модели
-    except Exception as err:
-        logger.error(f"Ошибка при смене нейросети: {err}")
-        await bot.edit_message_text(
-            chat_id=message.chat.id,
-            message_id=message.message_id,
-            text=cmd_message.error_message,
-            reply_markup=kb.report_an_error
-            )
-        return
-
-
-@logger.catch
-@router.message(F.text == "Сброс контекста 🔄")
-async def reset_context(message: Message, state: FSMContext, bot: Bot):
-    """ Сбрасывает контекст диалога
-
-    Args:
-        message (Message): Сообщение пользователя
-        state (FSMContext): Состояние диалога
-        bot (Bot): Бот
-    """
-    telegram_id = message.from_user.id
-    try:
-        db = DATABASE()
-        # Очищаем контекст сообщений в базе данных
-        await db.clear_message_history(telegram_id)
-        await message.reply(cmd_message.reset_context_message)
-    except Exception as err:
-        logger.error(f"Ошибка при сбросе контекста: {err}")
-        await bot.edit_message_text(
-            chat_id=message.chat.id,
-            message_id=message.message_id,
-            text=cmd_message.error_message,
-            reply_markup=kb.report_an_error
-            )
-        return
-        
-
-@logger.catch
-@router.message(F.text == "Какую выбрать нейросеть 🤔")
-async def reset_context(message: Message, state: FSMContext, bot: Bot):
-    await message.reply(cmd_message.about_message,
-                        parse_mode=ParseMode.MARKDOWN)
-
-
-@logger.catch
-@router.message(F.text.in_(["CHATGPT 4-o", "CHATGPT 4-o-mini"]))
-async def select_model(message: Message, state: FSMContext):
-    model_mapping = {
-        "CHATGPT 4-o": "gpt-4o",
-        "CHATGPT 4-o-mini": "gpt-4o-mini"
-    }
-    model = model_mapping.get(message.text)
-    
-    await state.update_data(model=model)
-    await state.set_state(Generate.text_input)
-
-    await message.answer(f"Вы выбрали {model}\n\nВведите текст для генерации 📝, или отправьте голосое сообщение 🎤:", reply_markup=await kb.change_model(model))
 
 
 @logger.catch
@@ -358,7 +216,6 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
             )
         await state.set_state(Generate.text_input)
         return
-
 
 @logger.catch
 @router.message(F.content_type.in_({'text', 'voice'}))
