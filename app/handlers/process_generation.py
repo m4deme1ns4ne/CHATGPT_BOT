@@ -60,7 +60,7 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
         hours, minutes, seconds, count = success_and_data[1]
         await message.answer(
             f"*ПРЕВЫШЕН ЛИМИТ ЗАПРОСОВ!*\n\n"
-            f"Вы можете использовать до {count} запросов gpt-4o-mini в сутки.\n\n"
+            f"Вы можете использовать до {count} запросов gpt-4o-mini в неделю.\n\n"
             f"Вы сможете использовать gpt снова через {int(hours)} часов, {int(minutes)} минут и {int(seconds)} секунд.",
             parse_mode=ParseMode.MARKDOWN
         )
