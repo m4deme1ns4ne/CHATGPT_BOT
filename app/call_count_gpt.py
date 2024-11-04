@@ -83,15 +83,15 @@ class GPTUsageHandler:
 
 
     @logger.catch
-    async def count_gpt_4o_mini_free(self, count: int=10, reset_interval: datetime=86400) -> tuple[bool, tuple]:
+    async def count_gpt_4o_mini_free(self, count: int=50, reset_interval: datetime=604800) -> tuple[bool, tuple]:
         """
         Обработка вызова бесплатной версии модели gpt-4o-mini 
         с учетом ограничений по количеству запросов.
 
         :param count: Максимальное количество разрешенных вызовов за интервал времени.
-                      По умолчанию равно 10.   
+                      По умолчанию равно 50.   
         :param reset_interval: Интервал времени (в секундах), после которого счетчик обнуляется. 
-                      По умолчанию равно 86400 (24 часа)
+                      По умолчанию равно 604800 (7 дней)
         :return: Результат обработки запроса. Возвращает кортеж,
                       где первый элемент - успешность операции (True/False),
                       второй элемент - данные о времени и кол-ве вызово в виде кортежа.

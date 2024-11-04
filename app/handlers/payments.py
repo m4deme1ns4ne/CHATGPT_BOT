@@ -24,7 +24,8 @@ class Generate(StatesGroup):
 async def command_pay(message: Message, state: FSMContext):
     await state.clear()
     await message.reply(cmd_message.prices,
-                        reply_markup=kb.assortiment_model)
+                        reply_markup=kb.assortiment_model,
+                        parse_mode=ParseMode.MARKDOWN)
 
 # Обработчик для выбора модели
 @router.callback_query(lambda callback: callback.data in ["gpt-4o", "gpt-4o-mini"])
@@ -32,7 +33,7 @@ async def select_model(callback: CallbackQuery, state: FSMContext):
     model_name = callback.data
     await state.update_data(model=model_name)
     await callback.message.edit_text(
-        f"Вы выбрали модель {model_name}. Пожалуйста, выберите количество запросов.",
+        f"Вы выбрали модель {model_name}.\n\nПожалуйста, выберите количество запросов.",
         reply_markup=await kb.assortiment_count(model_name)
     )
 
@@ -49,10 +50,10 @@ async def command_pay(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await bot.send_invoice(
         chat_id=callback.from_user.id,
         title=f"Купить {request_count} запросов к {model_name} 🌟",
-        description=cmd_message.prices,
+        description=cmd_message.attention,
         payload="private",
         currency=CURRENCY,
-        prices=[LabeledPrice(label=CURRENCY, amount=request_count)],
+        prices=[LabeledPrice(label=CURRENCY, amount=request_count*1.5)],
         reply_markup=await kb.payment_keyboard(model_name, request_count)
     )
     
@@ -70,18 +71,17 @@ async def successful_payment(message: Message, state: FSMContext) -> None:
         message (Message): Сообщение пользователя
     """
 
-    await message.bot.refund_star_payment(message.from_user.id,
-                                          message.successful_payment.telegram_payment_charge_id)
-
     data = await state.get_data()
     current_count = data.get("count")
     current_model = data.get("model")
 
     db = DATABASE()
-    await message.answer(f"Оплата успешно проведена 🎉💳\nТеперь вам доступно *{current_count} запросов*  {current_model}🚀",
-                         parse_mode=ParseMode.MARKDOWN)
     await db.increases_count_calls(
         telegram_id=message.from_user.id,
         model=current_model,
         count=current_count
     )
+
+
+    await message.answer(f"Оплата успешно проведена 🎉💳\nТеперь вам доступно *{current_count} запросов*  {current_model}🚀",
+                         parse_mode=ParseMode.MARKDOWN)
