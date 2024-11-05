@@ -5,7 +5,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.enums import ParseMode
 from loguru import logger
 
-from logger import file_logger
+from app.logger import file_logger
 from app import cmd_message
 import app.keyboards as kb
 from app.database.db import DATABASE
@@ -42,8 +42,10 @@ async def change_gpt_model(message: Message, state: FSMContext, bot: Bot):
                                                    model="gpt-4o-mini")
         count_gpt_4o = await db.get_users_call_data(telegram_id=telegram_id, 
                                               model="gpt-4o")
+        count_gpt_4o_mini_free = await db.get_users_call_data(telegram_id=telegram_id, 
+                                              model="gpt-4o-mini-free")
 
-        await message.answer(f"Выберите нейросеть 🤖\n\nОставшиеся кол-во запросов:\n\n*CHAT GPT 4o mini: {count_gpt_4o_mini[0]}*\n\n*CHAT GPT 4o: {count_gpt_4o[0]}*", 
+        await message.answer(f"""Выберите нейросеть 🤖\n\nОставшиеся кол-во платных запросов:\n\n*CHAT GPT 4o mini: {count_gpt_4o_mini[0]}*\n*CHAT GPT 4o: {count_gpt_4o[0]}*\n\nОставшиеся кол-во бесплатных запросов:\n\n*CHAT GPT 4o mini: {count_gpt_4o_mini_free[0]}*""", 
                              reply_markup=kb.main,
                              parse_mode=ParseMode.MARKDOWN)
         await state.set_state(Generate.selecting_model)  # Возвращаемся к выбору модели

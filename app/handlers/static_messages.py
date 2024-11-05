@@ -5,7 +5,7 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.state import State, StatesGroup
 from loguru import logger
 
-from logger import file_logger
+from app.logger import file_logger
 from app import cmd_message
 import app.keyboards as kb
 

@@ -2,7 +2,7 @@ import redis
 import time
 from loguru import logger
 
-from logger import file_logger
+from app.logger import file_logger
 
 
 class DatabaseRedis:

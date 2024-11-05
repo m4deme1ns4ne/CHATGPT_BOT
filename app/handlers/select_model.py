@@ -4,7 +4,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from loguru import logger
 
-from logger import file_logger
+from app.logger import file_logger
 import app.keyboards as kb
 
 

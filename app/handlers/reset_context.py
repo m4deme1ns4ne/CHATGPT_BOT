@@ -4,7 +4,7 @@ from aiogram.fsm.context import FSMContext
 from loguru import logger
 import os
 
-from logger import file_logger
+from app.logger import file_logger
 from app import cmd_message
 import app.keyboards as kb
 from app.database.db import DATABASE

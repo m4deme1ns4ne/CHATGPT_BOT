@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from loguru import logger
 import os
 
-from logger import file_logger
+from app.logger import file_logger
 from app.handlers import (change_model, static_messages, payments, 
                           process_generation, reset_context, select_model)
 

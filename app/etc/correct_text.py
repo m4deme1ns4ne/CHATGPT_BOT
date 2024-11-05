@@ -1,7 +1,7 @@
 import aiohttp
 from loguru import logger
 
-from logger import file_logger
+from app.logger import file_logger
 
 
 @logger.catch
@@ -18,7 +18,8 @@ async def correct_text(transcription: str) -> str:
             url = "https://speller.yandex.net/services/spellservice.json/checkText"
             params = {"text": transcription,
                     "lang": "ru",
-                    "options": "IGNORE_CAPITALIZATION"}
+                    "options": "IGNORE_CAPITALIZATION"
+                    }
             
             async with session.get(url, params=params) as response:
                 corrections = await response.json()

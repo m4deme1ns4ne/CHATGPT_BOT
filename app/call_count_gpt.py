@@ -3,7 +3,7 @@ from datetime import datetime
 from app.database.db import DATABASE
 from loguru import logger
 
-from logger import file_logger
+from app.logger import file_logger
 
 
 file_logger()
@@ -16,7 +16,8 @@ class GPTUsageHandler:
         self.telegram_id = telegram_id
         self.db = DATABASE()
         self.current_time = datetime.now()
-        self.free_model = "gpt-4o-mini"
+        self.free_model = "gpt-4o-mini-free"
+        self.gpt_4o_mini = "gpt-4o-mini"
         self.gpt_4o = "gpt-4o"
 
 
@@ -35,16 +36,18 @@ class GPTUsageHandler:
                  Если успешна, возвращаются None значения.
         """
         if model == "gpt-4o":
-            result = await self.count_gpt_4o()
+            result = await self.count_gpt(self.gpt_4o)
         else:
             result = await self.count_gpt_4o_mini_free()
         return result
     
 
     @logger.catch
-    async def count_gpt_4o(self) -> tuple[bool]:
+    async def count_gpt(self, model: str) -> tuple[bool]:
         """
-        Обработка вызова платной версии модели gpt-4o.
+        Обработка вызова платной версии моделей gpt.
+
+        :param model: модель gpt
 
         :return: Результат обработки запроса. Возвращает кортеж,
                       где первый элемент - успешность операции (True/False),
@@ -56,24 +59,24 @@ class GPTUsageHandler:
             await self.db.add_user(self.telegram_id)
             # Если данных нет, создаем запись для пользователя с текущим временем
             await self.db.update_users_call_data(telegram_id=self.telegram_id, 
-                                                 model=self.gpt_4o, 
+                                                 model=model, 
                                                  count=0,
                                                  last_reset=self.current_time)
             return (False,)
 
         else:
-            call_count, last_reset = await self.db.get_users_call_data(self.telegram_id, self.gpt_4o)
+            call_count, last_reset = await self.db.get_users_call_data(self.telegram_id, model)
 
             if call_count > 0:
                 # Преобразуем last_reset в тип datetime, если необходимо
                 if isinstance(last_reset, float):
                     last_reset = datetime.fromtimestamp(last_reset)
 
-                await self.db.decreases_count_calls(self.telegram_id, self.gpt_4o)
+                await self.db.decreases_count_calls(self.telegram_id, model)
                 call_count -= 1
 
                 await self.db.update_users_call_data(telegram_id=self.telegram_id, 
-                                                    model=self.gpt_4o, 
+                                                    model=model, 
                                                     count=call_count,
                                                     last_reset=last_reset)
                 return (True,)
@@ -85,7 +88,7 @@ class GPTUsageHandler:
     @logger.catch
     async def count_gpt_4o_mini_free(self, count: int=50, reset_interval: datetime=604800) -> tuple[bool, tuple]:
         """
-        Обработка вызова бесплатной версии модели gpt-4o-mini 
+        Обработка вызова бесплатной и платной версии модели gpt-4o-mini 
         с учетом ограничений по количеству запросов.
 
         :param count: Максимальное количество разрешенных вызовов за интервал времени.
@@ -124,13 +127,17 @@ class GPTUsageHandler:
                 call_count = count
                 last_reset = self.current_time
 
-            # Проверяем, превышен ли лимит вызовов
+            # Проверяем, превышен ли лимит вызовов в бесплатной модели
             if call_count <= 0:
-                time_until_reset = reset_interval - time_since_reset
-                hours, remainder = divmod(time_until_reset, 3600)
-                minutes, seconds = divmod(remainder, 60)
+                # Проверяем, превышен ли лимит вызовов в платной модели
+                result = await self.count_gpt(self.gpt_4o_mini)
+                if not result[0]:
+                    time_until_reset = reset_interval - time_since_reset
+                    hours, remainder = divmod(time_until_reset, 3600)
+                    minutes, seconds = divmod(remainder, 60)
 
-                return (False, (hours, minutes, seconds, count))
+                    return (False, (hours, minutes, seconds, count))
+                return (True,)
 
             # Уменьшаем счетчик вызовов
             await self.db.decreases_count_calls(self.telegram_id, self.free_model)

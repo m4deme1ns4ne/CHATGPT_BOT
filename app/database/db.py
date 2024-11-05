@@ -35,7 +35,8 @@ class DATABASE:
         self.port = 3306
         self.model_mapping = {
             "gpt-4o": "count_gpt_4o",
-            "gpt-4o-mini": "count_gpt_4o_mini_free"
+            "gpt-4o-mini": "count_gpt_4o_mini",
+            "gpt-4o-mini-free": "count_gpt_4o_mini_free"
         }
 
 

@@ -7,7 +7,7 @@ from aiogram.utils.text_decorations import markdown_decoration
 from loguru import logger
 import os
 
-from logger import file_logger
+from app.logger import file_logger
 from app import cmd_message
 import app.keyboards as kb
 from app.database.redis import DatabaseRedis
@@ -146,7 +146,7 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
         return
 
     try:
-        response_parts = split_text(response)
+        response_parts = split_text(str(response))
 
         # Цикл for для обработки всех частей списка
         for index, part in enumerate(response_parts):

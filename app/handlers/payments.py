@@ -4,7 +4,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.enums import ParseMode
 
-from logger import file_logger
+from app.logger import file_logger
 from app import cmd_message
 import app.keyboards as kb
 from app.database.db import DATABASE
@@ -44,7 +44,12 @@ async def command_pay(callback: CallbackQuery, state: FSMContext, bot: Bot):
     request_count = int(data_parts[1])
 
     await state.update_data(count=request_count)
-    
+
+    price = {
+        "gpt-4o": 1.5,
+        "gpt-4o-mini": 1
+    }
+
     CURRENCY = "XTR"
     
     await bot.send_invoice(
@@ -53,7 +58,7 @@ async def command_pay(callback: CallbackQuery, state: FSMContext, bot: Bot):
         description=cmd_message.attention,
         payload="private",
         currency=CURRENCY,
-        prices=[LabeledPrice(label=CURRENCY, amount=request_count*1.5)],
+        prices=[LabeledPrice(label=CURRENCY, amount=request_count*price[model_name])],
         reply_markup=await kb.payment_keyboard(model_name, request_count)
     )
     

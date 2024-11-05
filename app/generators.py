@@ -1,5 +1,5 @@
 from loguru import logger
-from logger import file_logger
+from app.logger import file_logger
 from openai import AsyncOpenAI
 import httpx
 import os
