@@ -1,12 +1,15 @@
 import asyncio
 from datetime import datetime
-from app.database.db import DATABASE
 from loguru import logger
 
 from app.logger import file_logger
+from app.database.db import (
+    DatabaseConfig, DatabaseConnection, UserManagement
+)
 
 
 file_logger()
+
 
 class GPTUsageHandler:
     """
@@ -14,11 +17,13 @@ class GPTUsageHandler:
     """
     def __init__(self, telegram_id: int) -> None:
         self.telegram_id = telegram_id
-        self.db = DATABASE()
         self.current_time = datetime.now()
         self.free_model = "gpt-4o-mini-free"
         self.gpt_4o_mini = "gpt-4o-mini"
         self.gpt_4o = "gpt-4o"
+        self.config = DatabaseConfig()
+        self.connection = DatabaseConnection(self.config)
+        self.user_manager = UserManagement(self.connection)
 
 
     @logger.catch
@@ -55,27 +60,27 @@ class GPTUsageHandler:
                       Если операция неуспешна, возвращается оставшееся время до сброса лимита.
                       Если успешна, возвращаются None значения.
         """
-        if not await self.db.user_exists(self.telegram_id):
-            await self.db.add_user(self.telegram_id)
+        if not await self.user_manager.user_exists(self.telegram_id):
+            await self.user_manager.add_user(self.telegram_id)
             # Если данных нет, создаем запись для пользователя с текущим временем
-            await self.db.update_users_call_data(telegram_id=self.telegram_id, 
+            await self.user_manager.update_users_call_data(telegram_id=self.telegram_id, 
                                                  model=model, 
                                                  count=0,
                                                  last_reset=self.current_time)
             return (False,)
 
         else:
-            call_count, last_reset = await self.db.get_users_call_data(self.telegram_id, model)
+            call_count, last_reset = await self.user_manager.get_users_call_data(self.telegram_id, model)
 
             if call_count > 0:
                 # Преобразуем last_reset в тип datetime, если необходимо
                 if isinstance(last_reset, float):
                     last_reset = datetime.fromtimestamp(last_reset)
 
-                await self.db.decreases_count_calls(self.telegram_id, model)
+                await self.user_manager.decreases_count_calls(self.telegram_id, model)
                 call_count -= 1
 
-                await self.db.update_users_call_data(telegram_id=self.telegram_id, 
+                await self.user_manager.update_users_call_data(telegram_id=self.telegram_id, 
                                                     model=model, 
                                                     count=call_count,
                                                     last_reset=last_reset)
@@ -101,12 +106,12 @@ class GPTUsageHandler:
                       Если операция неуспешна, возвращается оставшееся время до сброса лимита.
                       Если успешна, возвращаются None значения.
         """
-        if not await self.db.user_exists(self.telegram_id):
+        if not await self.user_manager.user_exists(self.telegram_id):
             call_count = count - 1
             # Добавляем пользователя в базу данных
-            await self.db.add_user(self.telegram_id)
+            await self.user_manager.add_user(self.telegram_id)
             # Если данных нет, создаем запись для пользователя с текущим временем
-            await self.db.update_users_call_data(telegram_id=self.telegram_id, 
+            await self.user_manager.update_users_call_data(telegram_id=self.telegram_id, 
                                                  model=self.free_model, 
                                                  count=call_count,
                                                  last_reset=self.current_time)
@@ -114,7 +119,10 @@ class GPTUsageHandler:
             return (True,)
         else:
             # Получаем данные пользователя из базы данных
-            call_count, last_reset = await self.db.get_users_call_data(self.telegram_id, self.free_model)
+            call_count, last_reset = await self.user_manager.get_users_call_data(
+                telegram_id=self.telegram_id, 
+                model=self.free_model
+                )
 
             # Преобразуем last_reset в тип datetime, если необходимо
             if isinstance(last_reset, float):
@@ -140,11 +148,11 @@ class GPTUsageHandler:
                 return (True,)
 
             # Уменьшаем счетчик вызовов
-            await self.db.decreases_count_calls(self.telegram_id, self.free_model)
+            await self.user_manager.decreases_count_calls(self.telegram_id, self.free_model)
             call_count -= 1
 
             # Обновляем данные пользователя в базе
-            await self.db.update_users_call_data(telegram_id=self.telegram_id, 
+            await self.user_manager.update_users_call_data(telegram_id=self.telegram_id, 
                                                  model=self.free_model, 
                                                  count=call_count, 
                                                  last_reset=last_reset)
@@ -163,6 +171,7 @@ class GPTUsageHandler:
         await asyncio.sleep(reset_interval)  # Ждем указанное время (в секундах)
         
         # Сбрасываем счетчик вызовов для пользователя
-        await self.db.reset_users_call_data(telegram_id=self.telegram_id,
-                                            count=count,
-                                            model=self.free_model)
+        await self.user_manager.reset_users_call_data(
+            telegram_id=self.telegram_id,
+            count=count,
+            model=self.free_model)

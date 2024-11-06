@@ -17,9 +17,9 @@ async def correct_text(transcription: str) -> str:
         async with aiohttp.ClientSession() as session:
             url = "https://speller.yandex.net/services/spellservice.json/checkText"
             params = {"text": transcription,
-                    "lang": "ru",
-                    "options": "IGNORE_CAPITALIZATION"
-                    }
+                      "lang": "ru",
+                      "options": "IGNORE_CAPITALIZATION"
+                      }
             
             async with session.get(url, params=params) as response:
                 corrections = await response.json()

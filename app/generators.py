@@ -4,8 +4,10 @@ from openai import AsyncOpenAI
 import httpx
 import os
 
-from app.database.db import DATABASE
 from app.cmd_message import promt
+from app.database.db import (
+    DatabaseConfig, DatabaseConnection, MessageHistory, UserManagement
+)
 
 
 file_logger()
@@ -16,7 +18,11 @@ class GPTResponse:
         self.api_key = os.getenv("OPEN_AI_TOKEN")
         self.proxies = os.getenv("PROXY")
         self.local_address = "0.0.0.0"
-        self.db = DATABASE()
+        
+        self.config = DatabaseConfig()
+        self.connection = DatabaseConnection(self.config)
+        self.user_manager = UserManagement(self.connection)
+        self.message_history = MessageHistory(self.connection)
 
     async def get_openai_client(self):
         """
@@ -44,12 +50,12 @@ class GPTResponse:
         try:
 
             # Проверяем, существует ли пользователь, если нет — добавляем
-            if not await self.db.user_exists(telegram_id):
-                await self.db.add_user(telegram_id)
+            if not await self.user_manager.user_exists(telegram_id):
+                await self.user_manager.add_user(telegram_id)
                 logger.info(f"Добавлен новый пользователь с telegram_id: {telegram_id}")
 
             # Получаем историю сообщений для пользователя
-            message_history = await self.db.get_message_history(telegram_id)
+            message_history = await self.message_history.get_message_history(telegram_id)
 
             # Добавляем новый вопрос в историю
             message_history.append({"role": "user", "content": str(question)})
@@ -85,7 +91,7 @@ class GPTResponse:
                 message_history = message_history[-6:]
 
             # Сохраняем новые сообщения в базу данных и удаляем старые
-            await self.db.save_message_history(telegram_id, message_history[-2:])
+            await self.message_history.save_message_history(telegram_id, message_history[-2:])
 
             logger.info(f"Ответ GPT {model_gpt} получен для пользователя {telegram_id}")
             return gpt_response

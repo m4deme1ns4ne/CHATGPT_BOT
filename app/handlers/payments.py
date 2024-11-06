@@ -7,7 +7,9 @@ from aiogram.enums import ParseMode
 from app.logger import file_logger
 from app import cmd_message
 import app.keyboards as kb
-from app.database.db import DATABASE
+from app.database.db import (
+    DatabaseConfig, DatabaseConnection, UserManagement
+)
 
 
 router = Router()
@@ -80,13 +82,15 @@ async def successful_payment(message: Message, state: FSMContext) -> None:
     current_count = data.get("count")
     current_model = data.get("model")
 
-    db = DATABASE()
-    await db.increases_count_calls(
+    config = DatabaseConfig()
+    connection = DatabaseConnection(config)
+    user_manager = UserManagement(connection)
+
+    await user_manager.increases_count_calls(
         telegram_id=message.from_user.id,
         model=current_model,
         count=current_count
     )
-
 
     await message.answer(f"Оплата успешно проведена 🎉💳\nТеперь вам доступно *{current_count} запросов*  {current_model}🚀",
                          parse_mode=ParseMode.MARKDOWN)

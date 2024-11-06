@@ -8,7 +8,9 @@ from loguru import logger
 from app.logger import file_logger
 from app import cmd_message
 import app.keyboards as kb
-from app.database.db import DATABASE
+from app.database.db import (
+    DatabaseConfig, DatabaseConnection, UserManagement
+)
 
 
 router = Router()
@@ -20,7 +22,6 @@ class Generate(StatesGroup):
     selecting_model = State()           # Состояние выбора модели
     text_input = State()                # Состояние ожидания текста от пользователя
     waiting_for_response = State()      # Ожидание ответа gpt
-
 
 
 @logger.catch
@@ -36,14 +37,20 @@ async def change_gpt_model(message: Message, state: FSMContext, bot: Bot):
     try:
 
         telegram_id = message.from_user.id
-        db = DATABASE()
 
-        count_gpt_4o_mini = await db.get_users_call_data(telegram_id=telegram_id, 
+        config = DatabaseConfig()
+        connection = DatabaseConnection(config)
+        user_manager = UserManagement(connection)
+
+        count_gpt_4o_mini = await user_manager.get_users_call_data(
+                                                   telegram_id=telegram_id, 
                                                    model="gpt-4o-mini")
-        count_gpt_4o = await db.get_users_call_data(telegram_id=telegram_id, 
-                                              model="gpt-4o")
-        count_gpt_4o_mini_free = await db.get_users_call_data(telegram_id=telegram_id, 
-                                              model="gpt-4o-mini-free")
+        count_gpt_4o = await user_manager.get_users_call_data(
+                                                   telegram_id=telegram_id, 
+                                                   model="gpt-4o")
+        count_gpt_4o_mini_free = await user_manager.get_users_call_data(
+                                                   telegram_id=telegram_id, 
+                                                   model="gpt-4o-mini-free")
 
         await message.answer(f"""Выберите нейросеть 🤖\n\nОставшиеся кол-во платных запросов:\n\n*CHAT GPT 4o mini: {count_gpt_4o_mini[0]}*\n*CHAT GPT 4o: {count_gpt_4o[0]}*\n\nОставшиеся кол-во бесплатных запросов:\n\n*CHAT GPT 4o mini: {count_gpt_4o_mini_free[0]}*""", 
                              reply_markup=kb.main,

@@ -12,9 +12,11 @@ class DatabaseRedis:
         
         Создает объект `redis_client` для дальнейшего взаимодействия с базой данных.
         """
-        self.redis_client = redis.Redis(host="localhost", 
-                                port=6379, 
-                                db=0)
+        self.redis_client = redis.Redis(
+                                        host="localhost", 
+                                        port=6379, 
+                                        db=0
+                                        )
 
 
     @logger.catch
