@@ -5,8 +5,8 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 
 most_high_main = ReplyKeyboardMarkup(keyboard=[
-    [KeyboardButton(text="Выбрать нейросеть 🧠"), KeyboardButton(text="Посмотреть код проекта 👀")],
-    [KeyboardButton(text="Купить запросы 🌟"), KeyboardButton(text="F.A.Q ❓")]
+    [KeyboardButton(text="Выбрать нейросеть 🧠"), KeyboardButton(text="Купить запросы 🌟")],
+    [KeyboardButton(text="Посмотреть код проекта 👀"), KeyboardButton(text="F.A.Q ❓")]
     ],
     resize_keyboard=True
     )
