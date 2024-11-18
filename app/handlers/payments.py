@@ -1,7 +1,6 @@
 from aiogram import F, Router, Bot
 from aiogram.types import Message, LabeledPrice, PreCheckoutQuery, CallbackQuery
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import StatesGroup, State
 from aiogram.enums import ParseMode
 
 from app.logger import file_logger
@@ -16,12 +15,6 @@ router = Router()
 
 file_logger()
 
-
-class Generate(StatesGroup):
-    model = State()
-    count = State()
-
-
 @router.message(F.text == "Купить запросы 🌟")
 async def command_pay(message: Message, state: FSMContext):
     await state.clear()
@@ -29,7 +22,6 @@ async def command_pay(message: Message, state: FSMContext):
                         reply_markup=kb.assortiment_model,
                         parse_mode=ParseMode.MARKDOWN)
 
-# Обработчик для выбора модели
 @router.callback_query(lambda callback: callback.data in ["gpt-4o", "gpt-4o-mini"])
 async def select_model(callback: CallbackQuery, state: FSMContext):
     model_name = callback.data

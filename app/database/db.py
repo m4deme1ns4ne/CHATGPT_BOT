@@ -1,5 +1,6 @@
 import aiomysql
 from datetime import datetime
+from dataclasses import dataclass
 
 
 """
@@ -26,39 +27,75 @@ CREATE TABLE message_history (
 );
 """
 
-
 class DatabaseConfig:
     """Хранит конфигурацию базы данных."""
     def __init__(self):
-        self.user = "root"
-        self.db = "chat_gpt_telegram_bot"
-        self.host = "localhost"
-        self.port = 3306
-        self.model_mapping = {
-            "gpt-4o": "count_gpt_4o",
-            "gpt-4o-mini": "count_gpt_4o_mini",
-            "gpt-4o-mini-free": "count_gpt_4o_mini_free"
-        }
+        self.__user = "root"
+        self.__db = "chat_gpt_telegram_bot"
+        self.__host = "localhost"
+        self.__port = 3306
 
-class DatabaseConnection:
+    @property
+    def user(self):
+        return self.__user
+
+    @property
+    def db(self):
+        return self.__db
+
+    @property
+    def host(self):
+        return self.__host
+
+    @property
+    def port(self):
+        return self.__port
+
+class DatabaseMeta(type):
+    """Метакласс для реализации паттерна Singleton при подключении к БД."""
+    _instances = {}
+    
+    def __call__(cls, *args, **kwargs):
+        """
+        Создает единственный экземпляр класса подключения к БД.
+        
+        :return: Существующий или новый экземпляр класса подключения
+        """
+        if cls not in cls._instances:
+            cls._instances[cls] = super().__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+class DatabaseConnection(metaclass=DatabaseMeta):
     """Управляет подключением к базе данных."""
-    def __init__(self, config: DatabaseConfig):
+    def __init__(self, config: DatabaseConfig) -> None:
         self.config = config
+        self._connection = None
 
-    async def get_connection(self) -> aiomysql.Connection:
+    async def get_connection(self):
         """Получение соединения с базой данных."""
-        return await aiomysql.connect(user=self.config.user, db=self.config.db,
-                                      host=self.config.host, port=self.config.port)
+        if not self._connection or self._connection.closed:
+            self._connection = await aiomysql.connect(
+                user=self.config.user,
+                db=self.config.db,
+                host=self.config.host,
+                port=self.config.port,
+                autocommit=True
+            )
+        return self._connection
+    
+@dataclass
+class Models:
+    model_mapping = {
+        "gpt-4o": "count_gpt_4o",
+        "gpt-4o-mini": "count_gpt_4o_mini",
+        "gpt-4o-mini-free": "count_gpt_4o_mini_free"
+        }
 
 class UserManagement:
     """Управляет операциями с пользователями."""
     def __init__(self, connection: DatabaseConnection):
         self.connection = connection
-        self.model_mapping = {
-            "gpt-4o": "count_gpt_4o",
-            "gpt-4o-mini": "count_gpt_4o_mini",
-            "gpt-4o-mini-free": "count_gpt_4o_mini_free"
-        }
+        self.model_mapping = Models.model_mapping
 
     async def user_exists(self, telegram_id: int) -> bool:
         """Проверка существования пользователя в таблице users."""
@@ -212,11 +249,7 @@ class MessageHistory:
     """Управляет историей сообщений."""
     def __init__(self, connection: DatabaseConnection):
         self.connection = connection
-        self.model_mapping = {
-            "gpt-4o": "count_gpt_4o",
-            "gpt-4o-mini": "count_gpt_4o_mini",
-            "gpt-4o-mini-free": "count_gpt_4o_mini_free"
-        }
+        self.model_mapping = Models.model_mapping
 
     async def get_message_history(self, telegram_id: int, limit: int = 6) -> list:
         """Получение последних сообщений из истории пользователя."""

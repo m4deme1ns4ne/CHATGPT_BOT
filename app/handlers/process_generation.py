@@ -1,6 +1,5 @@
 from aiogram import Router, Bot, F
 from aiogram.types import Message
-from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.enums import ParseMode
 from aiogram.utils.text_decorations import markdown_decoration
@@ -10,13 +9,16 @@ import os
 from app.logger import file_logger
 from app import cmd_message
 import app.keyboards as kb
-from app.database.redis import DatabaseRedis
 from app.generators import GPTResponse
 from app.call_count_gpt import GPTUsageHandler
 from app.etc.count_token import count_tokens
 from app.etc.split_text import split_text
 from app.etc.transcribe_audio import transcribe_audio
 from app.etc.correct_text import correct_text
+from app.handlers.states import GPTState
+from app.database.redis import (
+    DataBaseRedisConfig, DataBaseResidClient, DatabaseRedisUserManagement
+)
 
 
 router = Router()
@@ -24,21 +26,17 @@ router = Router()
 file_logger()
 
 
-class Generate(StatesGroup):
-    selecting_model = State()           # Состояние выбора модели
-    text_input = State()                # Состояние ожидания текста от пользователя
-    waiting_for_response = State()      # Ожидание ответа gpt
-
-
 @logger.catch
-@router.message(Generate.text_input)
+@router.message(GPTState.text_input)
 async def process_generation(message: Message, state: FSMContext, bot: Bot):
 
     await bot.send_chat_action(message.chat.id, "typing")
 
     telegram_id = message.from_user.id
 
-    rd = DatabaseRedis()
+    config = DataBaseRedisConfig()
+    client = DataBaseResidClient(config)
+    rd = DatabaseRedisUserManagement(client)
 
     # Проверяем время последнего сообщения
     if not await rd.check_time_spacing_between_messages(telegram_id):
@@ -110,8 +108,8 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
                             if os.path.exists(file_to_remove):
                                 try:
                                     os.remove(file_to_remove)
-                                except Exception as file_err:
-                                    logger.error(f"Не удалось удалить файл {file_to_remove}: {file_err}")
+                                except Exception as err:
+                                    logger.error(f"Не удалось удалить файл {file_to_remove}: {err}")
 
     else:
         user_input = message.text
@@ -121,11 +119,11 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
 
     current_state = await state.get_state()
 
-    if current_state == Generate.waiting_for_response.state:
+    if current_state == GPTState.waiting_for_response.state:
         await message.reply("Пожалуйста, дождитесь завершения обработки предыдущего запроса.")
         return
 
-    await state.set_state(Generate.waiting_for_response)
+    await state.set_state(GPTState.waiting_for_response)
 
     try:
         await bot.send_chat_action(message.chat.id, "typing")
@@ -142,16 +140,16 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
             text=cmd_message.error_message,
             reply_markup=kb.report_an_error
             )
-        await state.set_state(Generate.text_input)
+        await state.set_state(GPTState.text_input)
         return
 
     try:
         response_parts = split_text(str(response))
 
         # Цикл for для обработки всех частей списка
-        for index, part in enumerate(response_parts):
+        for i, part in enumerate(response_parts):
             try:
-                if index == 0:
+                if i == 0:
                     # Отправляем первое сообщение – обновляем старое
                     await bot.edit_message_text(
                         chat_id=waiting_message.chat.id,
@@ -171,7 +169,7 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
                 logger.error(f"Возникла ошибка с отправкой текста с разметкой markdown: {err}")
                 await message.reply("Не удалось отправить текст в разметке markdown :(")
                 try:
-                    if index == 0:
+                    if i == 0:
                         # Отправляем первое сообщение – обновляем старое
                         await bot.edit_message_text(
                             chat_id=waiting_message.chat.id,
@@ -204,7 +202,7 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
                 )
         
         logger.info(f"Ответ gpt получен и отправлен пользователю: {telegram_id}")
-        await state.set_state(Generate.text_input)
+        await state.set_state(GPTState.text_input)
         await rd.del_redis_id(telegram_id)
     except Exception as err:
         logger.error(f"Ошибка при отправке сообщения: {err}")
@@ -214,14 +212,14 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
             text=cmd_message.error_message,
             reply_markup=kb.report_an_error
             )
-        await state.set_state(Generate.text_input)
+        await state.set_state(GPTState.text_input)
         return
 
 @logger.catch
 @router.message(F.content_type.in_({'text', 'voice'}))
 async def error_handling(message: Message, state: FSMContext, bot: Bot):
     current_state = await state.get_state()
-    if current_state == Generate.waiting_for_response.state:
+    if current_state == GPTState.waiting_for_response.state:
         await message.reply("Пожалуйста, дождитесь завершения обработки предыдущего запроса. ⏳")
     else:
         await message.reply("Модель не была выбрана, поэтому автоматически выбрана gpt-4o-mini.", reply_markup=await kb.change_model("gpt-4o-mini"))    

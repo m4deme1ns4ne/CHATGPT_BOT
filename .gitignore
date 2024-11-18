@@ -1,3 +1,5 @@
 debug.log
 __pycache__
 dump.rdb
+.env
+.vscode

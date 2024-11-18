@@ -10,7 +10,6 @@ from app.database.db import (
 
 file_logger()
 
-
 class GPTUsageHandler:
     """
     Класс для обработки использования модели GPT.
@@ -24,7 +23,6 @@ class GPTUsageHandler:
         self.config = DatabaseConfig()
         self.connection = DatabaseConnection(self.config)
         self.user_manager = UserManagement(self.connection)
-
 
     @logger.catch
     async def process(self, model: str) -> tuple[bool, tuple]:
@@ -46,7 +44,6 @@ class GPTUsageHandler:
             result = await self.count_gpt_4o_mini_free()
         return result
     
-
     @logger.catch
     async def count_gpt(self, model: str) -> tuple[bool]:
         """
@@ -88,7 +85,6 @@ class GPTUsageHandler:
             
             else:
                 return (False,)
-
 
     @logger.catch
     async def count_gpt_4o_mini_free(self, count: int=50, reset_interval: datetime=604800) -> tuple[bool, tuple]:
@@ -157,7 +153,6 @@ class GPTUsageHandler:
                                                  count=call_count, 
                                                  last_reset=last_reset)
             return (True,)
-
 
     async def reset_call_count(self, reset_interval: datetime, count: int):
         """

@@ -9,7 +9,6 @@ from app.handlers import (change_model, static_messages, payments,
                           process_generation, reset_context, select_model)
 
 
-
 @logger.catch
 async def main() -> None:
 
