@@ -1,6 +1,6 @@
 # ChatGPT Telegram Bot
 
-#### Описание на [русском]().
+#### Описание на [русском](https://github.com/m4deme1ns4ne/CHATGPT_BOT/blob/main/README.md).
 
 Telegram bot with ChatGPT integration, supporting both text and voice messages.
 
