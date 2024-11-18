@@ -48,7 +48,7 @@ poetry install
 ```bash
 TELEGRAM_BOT_TOKEN="your_telegram_bot_token"
 OPENAI_API_KEY="your_openai_api_key"
-PROXY=your_proxy_url (опционально)
+PROXY="your_proxy_url" (опционально)
 ```
 
 4. Создайте базу данных MySQL и выполните SQL-скрипт для создания необходимых таблиц:
