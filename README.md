@@ -1,7 +1,5 @@
 # ChatGPT Telegram Bot
 
-#### Description in [English](docs/README-en.md).
-
 Telegram бот с интеграцией ChatGPT, поддерживающий как текстовые, так и голосовые сообщения.
 
 Можете его попробовать в [телеграмме](https://t.me/chatgp12e1t_bot).
