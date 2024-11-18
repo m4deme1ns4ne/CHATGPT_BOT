@@ -2,31 +2,6 @@ import aiomysql
 from datetime import datetime
 from dataclasses import dataclass
 
-
-"""
-CREATE TABLE users (
-    telegram_id BIGINT PRIMARY KEY,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE gpt_usage (
-    telegram_id BIGINT PRIMARY KEY,
-    count_gpt_4o INT DEFAULT 0,
-    count_gpt_4o_mini INT DEFAULT 0,
-    count_gpt_4o_mini_free INT DEFAULT 0,
-    last_reset TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
-CREATE TABLE message_history (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    telegram_id BIGINT,
-    role VARCHAR(255),
-    content TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_telegram_id_created_at (telegram_id, created_at)
-);
-"""
-
 class DatabaseConfig:
     """Хранит конфигурацию базы данных."""
     def __init__(self):
