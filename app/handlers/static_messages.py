@@ -32,3 +32,9 @@ async def which_neural_network_to_choose(message: Message):
 async def comman_faq(message: Message, state: FSMContext, bot: Bot):
     await message.reply(cmd_message.faq,
                         parse_mode=ParseMode.MARKDOWN)
+
+@router.message(F.text == "Посмотреть код проекта 👀")
+async def watch_code(message: Message):
+    await message.reply(cmd_message.watch_code,
+                        parse_mode=ParseMode.MARKDOWN,
+                        disable_web_page_preview=True)
