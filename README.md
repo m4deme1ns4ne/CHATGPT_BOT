@@ -56,7 +56,7 @@ PROXY="your_proxy_url" (опционально)
 4. Создайте базу данных MySQL и выполните SQL-скрипт для создания необходимых таблиц:
 
 ```sql
-CREATE DATABASE chatgpt_bot;
+CREATE DATABASE IF NOT EXISTS chat_gpt_telegram_bot;
 
 USE chatgpt_bot;
 
