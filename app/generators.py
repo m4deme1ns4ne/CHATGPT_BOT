@@ -67,20 +67,29 @@ class GPTResponse:
             # Создаем клиент OpenAI
             client = await self.get_openai_client()
 
-            # Отправляем запрос в GPT
-            response = await client.chat.completions.create(
-                model=model_gpt,
-                messages=[
-                    {"role": "system", "content": str(promt)},
-                    {"role": "user", "content": str(message_history)}
-                ],
-                max_tokens=1000,
-                temperature=0.7,
-                top_p=0.85,
-                n=1,
-                presence_penalty=0.5,
-                frequency_penalty=0.5
-            )
+            if model_gpt in ["o1-preview", "o1-mini"]:
+                # Отправляем запрос в GPT
+                response = await client.chat.completions.create(
+                    model=model_gpt,
+                    messages=[
+                        {"role": "user", "content": str(message_history)}
+                    ]
+                )
+            else:
+                # Отправляем запрос в GPT
+                response = await client.chat.completions.create(
+                    model=model_gpt,
+                    messages=[
+                        {"role": "system", "content": str(promt)},
+                        {"role": "user", "content": str(message_history)}
+                    ],
+                    max_tokens=1000,
+                    temperature=0.7,
+                    top_p=0.85,
+                    n=1,
+                    presence_penalty=0.5,
+                    frequency_penalty=0.5
+                )
 
             # Получаем ответ от GPT
             gpt_response = response.choices[0].message.content

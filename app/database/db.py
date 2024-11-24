@@ -60,17 +60,28 @@ class DatabaseConnection(metaclass=DatabaseMeta):
     
 @dataclass
 class Models:
-    model_mapping = {
+    model_mapping_db = {
         "gpt-4o": "count_gpt_4o",
         "gpt-4o-mini": "count_gpt_4o_mini",
-        "gpt-4o-mini-free": "count_gpt_4o_mini_free"
-        }
+        "gpt-4o-mini-free": "count_gpt_4o_mini_free",
+        "o1-preview": "count_gpt_o1",
+        "o1-mini": "count_gpt_o1_mini"
+    }
+    model_mapping_kb = {
+        "CHATGPT 4-o": "gpt-4o",
+        "CHATGPT 4-o-mini": "gpt-4o-mini",
+        "CHATGPT o1": "o1-preview",
+        "CHATGPT o1-mini": "o1-mini"
+    }
+    available_models = [
+        "gpt-4o", "gpt-4o-mini", "o1-preview", "o1-mini"
+    ]
 
 class UserManagement:
     """Управляет операциями с пользователями."""
     def __init__(self, connection: DatabaseConnection):
         self.connection = connection
-        self.model_mapping = Models.model_mapping
+        self.model_mapping = Models.model_mapping_db
 
     async def user_exists(self, telegram_id: int) -> bool:
         """Проверка существования пользователя в таблице users."""
@@ -224,7 +235,7 @@ class MessageHistory:
     """Управляет историей сообщений."""
     def __init__(self, connection: DatabaseConnection):
         self.connection = connection
-        self.model_mapping = Models.model_mapping
+        self.model_mapping = Models.model_mapping_db
 
     async def get_message_history(self, telegram_id: int, limit: int = 6) -> list:
         """Получение последних сообщений из истории пользователя."""

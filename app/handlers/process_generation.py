@@ -63,7 +63,7 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
             parse_mode=ParseMode.MARKDOWN
         )
         return
-    elif model == "gpt-4o" and not success:
+    elif not success:
         await message.answer(
             f"*ЗАКОНЧИЛИСЬ ЗАПРОСЫ модели {model}*\n\n"
             f"У вас закончились запросы нейросети {model}.\n" 

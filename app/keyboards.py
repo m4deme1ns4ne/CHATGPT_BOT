@@ -19,6 +19,7 @@ back = ReplyKeyboardMarkup(keyboard=[
 
 # Главное меню с выбором модели
 main = ReplyKeyboardMarkup(keyboard=[
+    [KeyboardButton(text="CHATGPT o1"), KeyboardButton(text="CHATGPT o1-mini")],
     [KeyboardButton(text="CHATGPT 4-o"), KeyboardButton(text="CHATGPT 4-o-mini")],
     [KeyboardButton(text="Назад ↩️"), KeyboardButton(text="Какую выбрать нейросеть 🤔")]
 ],
@@ -34,7 +35,9 @@ report_an_error = InlineKeyboardMarkup(
 assortiment_model = InlineKeyboardMarkup(
     inline_keyboard=[
         [InlineKeyboardButton(text="CHAT GPT 4o", callback_data="gpt-4o")],
-        [InlineKeyboardButton(text="CHAT GPT 4o mini", callback_data="gpt-4o-mini")]
+        [InlineKeyboardButton(text="CHAT GPT 4o mini", callback_data="gpt-4o-mini")],
+        [InlineKeyboardButton(text="CHATGPT o1", callback_data="o1-preview")],
+        [InlineKeyboardButton(text="CHATGPT o1-mini", callback_data="o1-mini")]
     ]
 )
 

@@ -11,16 +11,14 @@ from app.handlers.states import GPTState
 router = Router()
 
 file_logger()
-    
+
 
 @logger.catch
-@router.message(F.text.in_(["CHATGPT 4-o", "CHATGPT 4-o-mini"]))
+@router.message(F.text.in_(["CHATGPT 4-o", "CHATGPT 4-o-mini", "CHATGPT o1", "CHATGPT o1-mini"]))
 async def select_model(message: Message, state: FSMContext):
-    model_mapping = {
-        "CHATGPT 4-o": "gpt-4o",
-        "CHATGPT 4-o-mini": "gpt-4o-mini"
-    }
-    model = model_mapping.get(message.text)
+    from app.database.db import Models
+
+    model = Models.model_mapping_kb.get(message.text)
     
     await state.update_data(model=model)
     await state.set_state(GPTState.text_input)

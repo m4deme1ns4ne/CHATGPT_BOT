@@ -9,6 +9,7 @@ import app.keyboards as kb
 from app.database.db import (
     DatabaseConfig, DatabaseConnection, UserManagement
 )
+from app.database.db import Models
 
 
 router = Router()
@@ -22,7 +23,7 @@ async def command_pay(message: Message, state: FSMContext):
                         reply_markup=kb.assortiment_model,
                         parse_mode=ParseMode.MARKDOWN)
 
-@router.callback_query(lambda callback: callback.data in ["gpt-4o", "gpt-4o-mini"])
+@router.callback_query(lambda callback: callback.data in Models.available_models)
 async def select_model(callback: CallbackQuery, state: FSMContext):
     model_name = callback.data
     await state.update_data(model=model_name)
@@ -41,7 +42,9 @@ async def command_pay(callback: CallbackQuery, state: FSMContext, bot: Bot):
 
     price = {
         "gpt-4o": 1.5,
-        "gpt-4o-mini": 1
+        "gpt-4o-mini": 1,
+        "o1-preview": 8,
+        "o1-mini": 2
     }
 
     CURRENCY = "XTR"

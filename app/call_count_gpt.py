@@ -6,6 +6,7 @@ from app.logger import file_logger
 from app.database.db import (
     DatabaseConfig, DatabaseConnection, UserManagement
 )
+from app.database.db import Models
 
 
 file_logger()
@@ -17,9 +18,6 @@ class GPTUsageHandler:
     def __init__(self, telegram_id: int) -> None:
         self.telegram_id = telegram_id
         self.current_time = datetime.now()
-        self.free_model = "gpt-4o-mini-free"
-        self.gpt_4o_mini = "gpt-4o-mini"
-        self.gpt_4o = "gpt-4o"
         self.config = DatabaseConfig()
         self.connection = DatabaseConnection(self.config)
         self.user_manager = UserManagement(self.connection)
@@ -38,8 +36,8 @@ class GPTUsageHandler:
                  Если операция неуспешна, возвращается оставшееся время до сброса лимита.
                  Если успешна, возвращаются None значения.
         """
-        if model == "gpt-4o":
-            result = await self.count_gpt(self.gpt_4o)
+        if model != "gpt-4o-mini-free":
+            result = await self.count_gpt(model)
         else:
             result = await self.count_gpt_4o_mini_free()
         return result
