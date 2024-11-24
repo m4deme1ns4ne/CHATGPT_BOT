@@ -1,6 +1,6 @@
 # ChatGPT Telegram Bot
 
-Docs in in [English](docs/README-eng.md)
+###  Docs in in [English](docs/README-eng.md)
 
 Telegram бот с интеграцией ChatGPT, поддерживающий как текстовые, так и голосовые сообщения.
 
