@@ -6,7 +6,7 @@ You can try it in [telegram](https://t.me/chatgp12e1t_bot).
 
 ## 🌟 Key Features
 
-- 💬 Support for GPT-4o and GPT-4o-mini models
+- 💬 Support for GPT 4, 4o-mini, o1, o1-mini
 - 🎤 Voice message recognition
 - 💾 Save conversation context
 - 🔄 Ability to reset context
