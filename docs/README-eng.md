@@ -79,6 +79,12 @@ content TEXT,
 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 INDEX idx_telegram_id_created_at (telegram_id, created_at)
 );
+ALTER TABLE gpt_usage
+ADD count_gpt_o1 INT DEFAULT 0,
+ADD count_gpt_o1_mini INT DEFAULT 0;
+ALTER TABLE gpt_usage
+MODIFY count_gpt_o1 INT DEFAULT 0 AFTER count_gpt_4o_mini_free,
+MODIFY count_gpt_o1_mini INT DEFAULT 0 AFTER count_gpt_o1;
 ```
 
 ## 🎯 Usage
