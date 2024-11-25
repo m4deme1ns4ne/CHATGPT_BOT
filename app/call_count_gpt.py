@@ -6,7 +6,6 @@ from app.logger import file_logger
 from app.database.db import (
     DatabaseConfig, DatabaseConnection, UserManagement
 )
-from app.database.db import Models
 
 
 file_logger()

@@ -54,30 +54,25 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
     success_and_data = await usage.process(model)
     success = success_and_data[0]
 
-    if model == "gpt-4o-mini" and not success:
-        if len(success_and_data) > 1:
-            hours, minutes, seconds, count = success_and_data[1]
-            await message.answer(
-                f"*ПРЕВЫШЕН ЛИМИТ ЗАПРОСОВ!*\n\n"
-                f"Вы можете использовать до {count} запросов gpt-4o-mini в неделю.\n\n"
-                f"Вы сможете использовать gpt снова через {int(hours)} часов, {int(minutes)} минут и {int(seconds)} секунд.",
-                parse_mode=ParseMode.MARKDOWN
-            )
-        else:
-            await message.answer(
-                "*ПРЕВЫШЕН ЛИМИТ ЗАПРОСОВ!*\n\n"
-                "У вас закончились запросы к модели gpt-4o-mini.",
-                parse_mode=ParseMode.MARKDOWN
-            )
-        return
-    elif not success:
-        await message.answer(
-            f"*ЗАКОНЧИЛИСЬ ЗАПРОСЫ модели {model}*\n\n"
-            f"У вас закончились запросы нейросети {model}.\n" 
-            "Вы можете преобрести ещё запросов через кнопку *Купить запросы* 🌟 в главном меню.",
-            parse_mode=ParseMode.MARKDOWN
-        )
-        return
+    if model == "gpt-4o-mini":
+        # Сначала проверяем бесплатные запросы
+        usage_free = GPTUsageHandler(telegram_id)
+        success_free = await usage_free.process("gpt-4o-mini-free")
+
+        if success_free[0]:
+            # Если есть бесплатные запросы, используем их
+            return True
+        elif not success:
+            # Если нет ни бесплатных, ни платных запросов
+            if len(success_and_data) > 1:
+                hours, minutes, seconds, count = success_and_data[1]
+                await message.answer(
+                    f"*ЗАКОНЧИЛИСЬ ЗАПРОСЫ модели {model}*\n\n"
+                    f"У вас закончились запросы нейросети {model}.\n" 
+                    "Вы можете преобрести ещё запросов через кнопку *Купить запросы* 🌟 в главном меню.",
+                    parse_mode=ParseMode.MARKDOWN
+                )
+                return
 
     if message.voice:
             try:
