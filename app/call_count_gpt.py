@@ -35,7 +35,7 @@ class GPTUsageHandler:
                  Если операция неуспешна, возвращается оставшееся время до сброса лимита.
                  Если успешна, возвращаются None значения.
         """
-        if model != "gpt-4o-mini-free":
+        if model != "gpt-4o-mini":
             result = await self.count_gpt(model)
         else:
             result = await self.count_gpt_4o_mini_free()
@@ -108,7 +108,7 @@ class GPTUsageHandler:
             await self.user_manager.add_user(self.telegram_id)
             # Если данных нет, создаем запись для пользователя с текущим временем
             await self.user_manager.update_users_call_data(telegram_id=self.telegram_id, 
-                                                 model=self.free_model, 
+                                                 model="gpt-4o-mini-free", 
                                                  count=call_count,
                                                  last_reset=self.current_time)
             asyncio.create_task(self.reset_call_count(reset_interval, count))
@@ -117,7 +117,7 @@ class GPTUsageHandler:
             # Получаем данные пользователя из базы данных
             call_count, last_reset = await self.user_manager.get_users_call_data(
                 telegram_id=self.telegram_id, 
-                model=self.free_model
+                model="gpt-4o-mini-free"
                 )
 
             # Преобразуем last_reset в тип datetime, если необходимо
@@ -134,22 +134,23 @@ class GPTUsageHandler:
             # Проверяем, превышен ли лимит вызовов в бесплатной модели
             if call_count <= 0:
                 # Проверяем, превышен ли лимит вызовов в платной модели
-                result = await self.count_gpt(self.gpt_4o_mini)
+                result = await self.count_gpt("gpt-4o-mini")
                 if not result[0]:
                     time_until_reset = reset_interval - time_since_reset
-                    hours, remainder = divmod(time_until_reset, 3600)
+                    days, remainder = divmod(time_until_reset, 86400)
+                    hours, remainder = divmod(remainder, 3600)
                     minutes, seconds = divmod(remainder, 60)
 
-                    return (False, (hours, minutes, seconds, count))
+                    return (False, (days, hours, minutes, seconds, count))
                 return (True,)
 
             # Уменьшаем счетчик вызовов
-            await self.user_manager.decreases_count_calls(self.telegram_id, self.free_model)
+            await self.user_manager.decreases_count_calls(self.telegram_id, "gpt-4o-mini-free")
             call_count -= 1
 
             # Обновляем данные пользователя в базе
             await self.user_manager.update_users_call_data(telegram_id=self.telegram_id, 
-                                                 model=self.free_model, 
+                                                 model="gpt-4o-mini-free", 
                                                  count=call_count, 
                                                  last_reset=last_reset)
             return (True,)
@@ -169,4 +170,4 @@ class GPTUsageHandler:
         await self.user_manager.reset_users_call_data(
             telegram_id=self.telegram_id,
             count=count,
-            model=self.free_model)
+            model="gpt-4o-mini")
