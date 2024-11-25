@@ -55,13 +55,20 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
     success = success_and_data[0]
 
     if model == "gpt-4o-mini" and not success:
-        hours, minutes, seconds, count = success_and_data[1]
-        await message.answer(
-            f"*ПРЕВЫШЕН ЛИМИТ ЗАПРОСОВ!*\n\n"
-            f"Вы можете использовать до {count} запросов gpt-4o-mini в неделю.\n\n"
-            f"Вы сможете использовать gpt снова через {int(hours)} часов, {int(minutes)} минут и {int(seconds)} секунд.",
-            parse_mode=ParseMode.MARKDOWN
-        )
+        if len(success_and_data) > 1:
+            hours, minutes, seconds, count = success_and_data[1]
+            await message.answer(
+                f"*ПРЕВЫШЕН ЛИМИТ ЗАПРОСОВ!*\n\n"
+                f"Вы можете использовать до {count} запросов gpt-4o-mini в неделю.\n\n"
+                f"Вы сможете использовать gpt снова через {int(hours)} часов, {int(minutes)} минут и {int(seconds)} секунд.",
+                parse_mode=ParseMode.MARKDOWN
+            )
+        else:
+            await message.answer(
+                "*ПРЕВЫШЕН ЛИМИТ ЗАПРОСОВ!*\n\n"
+                "У вас закончились запросы к модели gpt-4o-mini.",
+                parse_mode=ParseMode.MARKDOWN
+            )
         return
     elif not success:
         await message.answer(
@@ -220,7 +227,7 @@ async def process_generation(message: Message, state: FSMContext, bot: Bot):
 async def error_handling(message: Message, state: FSMContext, bot: Bot):
     current_state = await state.get_state()
     if current_state == GPTState.waiting_for_response.state:
-        await message.reply("Пожалуйста, дождитесь завершения обработки предыдущего запроса. ⏳")
+        await message.reply("П��жалуйста, дождитесь завершения обработки предыдущего запроса. ⏳")
     else:
         await message.reply("Модель не была выбрана, поэтому автоматически выбрана gpt-4o-mini.", reply_markup=await kb.change_model("gpt-4o-mini"))    
         await process_generation(message, state, bot)

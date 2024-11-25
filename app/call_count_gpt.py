@@ -57,12 +57,13 @@ class GPTUsageHandler:
         """
         if not await self.user_manager.user_exists(self.telegram_id):
             await self.user_manager.add_user(self.telegram_id)
-            # Если данных нет, создаем запись для пользователя с текущим временем
-            await self.user_manager.update_users_call_data(telegram_id=self.telegram_id, 
-                                                 model=model, 
-                                                 count=0,
-                                                 last_reset=self.current_time)
-            return (False,)
+            await self.user_manager.update_users_call_data(
+                telegram_id=self.telegram_id, 
+                model=model, 
+                count=0,
+                last_reset=self.current_time
+            )
+            return (False, (0, 0, 0, 0))
 
         else:
             call_count, last_reset = await self.user_manager.get_users_call_data(self.telegram_id, model)
@@ -75,14 +76,16 @@ class GPTUsageHandler:
                 await self.user_manager.decreases_count_calls(self.telegram_id, model)
                 call_count -= 1
 
-                await self.user_manager.update_users_call_data(telegram_id=self.telegram_id, 
-                                                    model=model, 
-                                                    count=call_count,
-                                                    last_reset=last_reset)
-                return (True,)
+                await self.user_manager.update_users_call_data(
+                    telegram_id=self.telegram_id, 
+                    model=model, 
+                    count=call_count,
+                    last_reset=last_reset
+                )
+                return (True, (0, 0, 0, 0))
             
             else:
-                return (False,)
+                return (False, (0, 0, 0, 0))
 
     @logger.catch
     async def count_gpt_4o_mini_free(self, count: int=50, reset_interval: datetime=604800) -> tuple[bool, tuple]:
